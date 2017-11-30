@@ -3635,6 +3635,7 @@ call_function(PyObject ***pp_stack, int oparg
             printf("co_argcount: %d, co_nlocals: %d\n",
                    ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,
                    ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);
+            // hack over
 			x = fast_function(func, pp_stack, n, na, nk);
         }
 		else
