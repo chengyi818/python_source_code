@@ -3580,8 +3580,6 @@ call_function(PyObject ***pp_stack, int oparg
 	PyObject **pfunc = (*pp_stack) - n - 1;
 	PyObject *func = *pfunc;
 	PyObject *x, *w;
-    // chengyi hack
-    printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);
 
 	/* Always dispatch PyCFunction first, because these are
 	   presumed to be the most frequent callable object.
@@ -3633,9 +3631,7 @@ call_function(PyObject ***pp_stack, int oparg
 		READ_TIMESTAMP(*pintr0);
 		if (PyFunction_Check(func)) {
             // chengyi hack
-            /* PyObject_Print(((PyFunctionObject*)func)->func_code, stdout, 0); */
-            /* printf("\n"); */
-
+            printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);
             printf("co_argcount: %d, co_nlocals: %d\n",
                    ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,
                    ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);
