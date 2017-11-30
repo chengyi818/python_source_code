@@ -730,7 +730,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			   an argument which depends on the situation.
 			   The global trace function is also called
 			   whenever an exception is detected. */
-			if (call_trace_protected(tstate->c_tracefunc, 
+			if (call_trace_protected(tstate->c_tracefunc,
 						 tstate->c_traceobj,
 						 f, PyTrace_CALL, Py_None)) {
 				/* Trace function raised an error */
@@ -3580,6 +3580,8 @@ call_function(PyObject ***pp_stack, int oparg
 	PyObject **pfunc = (*pp_stack) - n - 1;
 	PyObject *func = *pfunc;
 	PyObject *x, *w;
+    // chengyi hack
+    printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);
 
 	/* Always dispatch PyCFunction first, because these are
 	   presumed to be the most frequent callable object.
@@ -3629,8 +3631,16 @@ call_function(PyObject ***pp_stack, int oparg
 		} else
 			Py_INCREF(func);
 		READ_TIMESTAMP(*pintr0);
-		if (PyFunction_Check(func))
+		if (PyFunction_Check(func)) {
+            // chengyi hack
+            /* PyObject_Print(((PyFunctionObject*)func)->func_code, stdout, 0); */
+            /* printf("\n"); */
+
+            printf("co_argcount: %d, co_nlocals: %d\n",
+                   ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,
+                   ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);
 			x = fast_function(func, pp_stack, n, na, nk);
+        }
 		else
 			x = do_call(func, pp_stack, na, nk);
 		READ_TIMESTAMP(*pintr1);
