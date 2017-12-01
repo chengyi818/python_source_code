@@ -2674,11 +2674,15 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 	fastlocals = f->f_localsplus;
 	freevars = f->f_localsplus + co->co_nlocals;
 
+    // 函数定义接受位置参数或键参数
+    // 或者 函数定义接受可变位置参数
+    // 或者 函数定义接受可变键参数
 	if (co->co_argcount > 0 ||
 	    co->co_flags & (CO_VARARGS | CO_VARKEYWORDS)) {
 		int i;
 		int n = argcount;
 		PyObject *kwdict = NULL;
+        // 如果有扩展键参数,建立字典,用于保存
 		if (co->co_flags & CO_VARKEYWORDS) {
 			kwdict = PyDict_New();
 			if (kwdict == NULL)
@@ -2688,6 +2692,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 				i++;
 			SETLOCAL(i, kwdict);
 		}
+        // 函数调用位置参数个数 大于 函数定义所接受参数个数
 		if (argcount > co->co_argcount) {
 			if (!(co->co_flags & CO_VARARGS)) {
 				PyErr_Format(PyExc_TypeError,
@@ -2798,6 +2803,8 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 		}
 	}
 	else {
+        // 函数定义没有接收参数
+        // 传递了位置参数或者键参数
 		if (argcount > 0 || kwcount > 0) {
 			PyErr_Format(PyExc_TypeError,
 				     "%.200s() takes no arguments (%d given)",
