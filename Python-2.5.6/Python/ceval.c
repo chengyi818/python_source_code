@@ -2694,6 +2694,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 		}
         // 函数调用位置参数个数 大于 函数定义所接受参数个数
 		if (argcount > co->co_argcount) {
+            // 如果没有扩展位置参数,则报错
 			if (!(co->co_flags & CO_VARARGS)) {
 				PyErr_Format(PyExc_TypeError,
 				    "%.200s() takes %s %d "
@@ -2706,13 +2707,16 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 				    argcount);
 				goto fail;
 			}
+            // 重新计算普通位置参数的个数
 			n = co->co_argcount;
 		}
+        // 拷贝普通位置参数
 		for (i = 0; i < n; i++) {
 			x = args[i];
 			Py_INCREF(x);
 			SETLOCAL(i, x);
 		}
+        // 拷贝扩展位置参数
 		if (co->co_flags & CO_VARARGS) {
 			u = PyTuple_New(argcount - n);
 			if (u == NULL)
@@ -2724,10 +2728,12 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 				PyTuple_SET_ITEM(u, i-n, x);
 			}
 		}
+        // 处理字典参数
 		for (i = 0; i < kwcount; i++) {
 			PyObject *keyword = kws[2*i];
 			PyObject *value = kws[2*i + 1];
 			int j;
+            // keyword检查
 			if (keyword == NULL || !PyString_Check(keyword)) {
 				PyErr_Format(PyExc_TypeError,
 				    "%.200s() keywords must be strings",
@@ -2735,6 +2741,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 				goto fail;
 			}
 			/* XXX slow -- speed up using dictionary? */
+            // 在函数定义接受的键值中,查找keyword
 			for (j = 0; j < co->co_argcount; j++) {
 				PyObject *nm = PyTuple_GET_ITEM(
 					co->co_varnames, j);
@@ -2748,7 +2755,9 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 			/* Check errors from Compare */
 			if (PyErr_Occurred())
 				goto fail;
+            // 在函数定义接受的键值中,没有找到keyword
 			if (j >= co->co_argcount) {
+                // 如果没有接受扩展键参数,报错
 				if (kwdict == NULL) {
 					PyErr_Format(PyExc_TypeError,
 					    "%.200s() got an unexpected "
@@ -2757,9 +2766,12 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 					    PyString_AsString(keyword));
 					goto fail;
 				}
+                // 将键值对保存到扩展键字典
 				PyDict_SetItem(kwdict, keyword, value);
 			}
+            // 在函数定义接受的键值中,找到了keyword
 			else {
+                // 键参数index对应的localplus中的位置,已经有值了.报错
 				if (GETLOCAL(j) != NULL) {
 					PyErr_Format(PyExc_TypeError,
 					     "%.200s() got multiple "
@@ -2769,11 +2781,15 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 					     PyString_AsString(keyword));
 					goto fail;
 				}
+                // 在键参数index对应的localplus中的位置,仅保存了键参数对应的值
 				Py_INCREF(value);
 				SETLOCAL(j, value);
 			}
 		}
+        // 函数调用传递参数个数 小于 函数定义的参数个数
+        // 默认参数, n = argcount
 		if (argcount < co->co_argcount) {
+            // 至少需要传递的参数个数
 			int m = co->co_argcount - defcount;
 			for (i = argcount; i < m; i++) {
 				if (GETLOCAL(i) == NULL) {
@@ -2789,11 +2805,14 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 					goto fail;
 				}
 			}
+            // 从哪里开始使用defs数组
 			if (n > m)
 				i = n - m;
 			else
 				i = 0;
+            // 用默认参数填充local
 			for (; i < defcount; i++) {
+                // local对应位置没有值,才会填充
 				if (GETLOCAL(m+i) == NULL) {
 					PyObject *def = defs[i];
 					Py_INCREF(def);
@@ -2804,7 +2823,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 	}
 	else {
         // 函数定义没有接收参数
-        // 传递了位置参数或者键参数
+        // 且传递了位置参数或者键参数
 		if (argcount > 0 || kwcount > 0) {
 			PyErr_Format(PyExc_TypeError,
 				     "%.200s() takes no arguments (%d given)",
@@ -2815,11 +2834,13 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 	}
 	/* Allocate and initialize storage for cell vars, and copy free
 	   vars into frame.  This isn't too efficient right now. */
+    // 处理cellvars
 	if (PyTuple_GET_SIZE(co->co_cellvars)) {
 		int i, j, nargs, found;
 		char *cellname, *argname;
 		PyObject *c;
 
+        // cellvars位于扩展键字典之后
 		nargs = co->co_argcount;
 		if (co->co_flags & CO_VARARGS)
 			nargs++;
@@ -2857,6 +2878,8 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 			}
 		}
 	}
+    // 处理freevars,闭包
+    // 位于参数,扩展位置参数,扩展键参数,cellvars之后, valuestack之前
 	if (PyTuple_GET_SIZE(co->co_freevars)) {
 		int i;
 		for (i = 0; i < PyTuple_GET_SIZE(co->co_freevars); ++i) {
@@ -2866,6 +2889,8 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 		}
 	}
 
+    // 生成器
+    // 返回生成器对象
 	if (co->co_flags & CO_GENERATOR) {
 		/* Don't need to keep the reference to f_back, it will be set
 		 * when the generator is resumed. */
@@ -2879,6 +2904,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 		return PyGen_New(f);
 	}
 
+    // 进入新的函数framei执行
         retval = PyEval_EvalFrameEx(f,0);
 
   fail: /* Jump here from prelude on failure */
