@@ -3664,10 +3664,10 @@ call_function(PyObject ***pp_stack, int oparg
 		READ_TIMESTAMP(*pintr0);
 		if (PyFunction_Check(func)) {
             // chengyi hack
-            printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);
-            printf("co_argcount: %d, co_nlocals: %d\n",
-                   ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,
-                   ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);
+            /*printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);*/
+            /*printf("co_argcount: %d, co_nlocals: %d\n",*/
+                   /*((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,*/
+                   /*((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);*/
             // hack over
 			x = fast_function(func, pp_stack, n, na, nk);
         }
