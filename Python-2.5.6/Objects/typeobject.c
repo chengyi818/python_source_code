@@ -3365,6 +3365,7 @@ PyType_Ready(PyTypeObject *type)
 		inherit_special(type, type->tp_base);
 
 	/* Initialize tp_dict properly */
+    // 按顺序从基类中继承操作
 	bases = type->tp_mro;
 	assert(bases != NULL);
 	assert(PyTuple_Check(bases));
@@ -3391,6 +3392,7 @@ PyType_Ready(PyTypeObject *type)
 	/* if the type dictionary doesn't contain a __doc__, set it from
 	   the tp_doc slot.
 	 */
+    // 设置__doc__信息
 	if (PyDict_GetItemString(type->tp_dict, "__doc__") == NULL) {
 		if (type->tp_doc != NULL) {
 			PyObject *doc = PyString_FromString(type->tp_doc);
@@ -3405,6 +3407,7 @@ PyType_Ready(PyTypeObject *type)
 	}
 
 	/* Some more special stuff */
+    // 额外填充
 	base = type->tp_base;
 	if (base != NULL) {
 		if (type->tp_as_number == NULL)
@@ -3418,6 +3421,7 @@ PyType_Ready(PyTypeObject *type)
 	}
 
 	/* Link into each base class's list of subclasses */
+    // 将本类加入基类的子类列表
 	bases = type->tp_bases;
 	n = PyTuple_GET_SIZE(bases);
 	for (i = 0; i < n; i++) {
