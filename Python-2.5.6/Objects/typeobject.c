@@ -87,7 +87,7 @@ type_module(PyTypeObject *type, void *context)
 
 	if (type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
 		mod = PyDict_GetItemString(type->tp_dict, "__module__");
-		if (!mod) { 
+		if (!mod) {
 			PyErr_Format(PyExc_AttributeError, "__module__");
 			return 0;
 		}
@@ -1330,7 +1330,7 @@ mro_internal(PyTypeObject *type)
 		for (i = 0; i < len; i++) {
 			PyTypeObject *t;
 			cls = PyTuple_GET_ITEM(tuple, i);
-			if (PyClass_Check(cls)) 
+			if (PyClass_Check(cls))
 				continue;
 			else if (!PyType_Check(cls)) {
 				PyErr_Format(PyExc_TypeError,
@@ -3267,6 +3267,7 @@ PyType_Ready(PyTypeObject *type)
 	PyTypeObject *base;
 	Py_ssize_t i, n;
 
+    // 检查flag,如果已经初始化,则退出.
 	if (type->tp_flags & Py_TPFLAGS_READY) {
 		assert(type->tp_dict != NULL);
 		return 0;
@@ -3285,6 +3286,7 @@ PyType_Ready(PyTypeObject *type)
 #endif
 
 	/* Initialize tp_base (defaults to BaseObject unless that's us) */
+    // 获取type的基类,如果没有,则n指定为PyBaseObject_Type.
 	base = type->tp_base;
 	if (base == NULL && type != &PyBaseObject_Type) {
 		base = type->tp_base = &PyBaseObject_Type;
@@ -3296,6 +3298,7 @@ PyType_Ready(PyTypeObject *type)
          */
 
 	/* Initialize the base class */
+    // 如果基类没有初始化,则初始化基类. 递归
 	if (base && base->tp_dict == NULL) {
 		if (PyType_Ready(base) < 0)
 			goto error;
@@ -3308,10 +3311,12 @@ PyType_Ready(PyTypeObject *type)
            NULL when type is &PyBaseObject_Type, and we know its ob_type is
            not NULL (it's initialized to &PyType_Type).  But coverity doesn't
            know that. */
+    // 设置type信息,如果没有显式指定,则使用基类的type.
 	if (type->ob_type == NULL && base != NULL)
 		type->ob_type = base->ob_type;
 
 	/* Initialize tp_bases */
+    // 处理基类列表
 	bases = type->tp_bases;
 	if (bases == NULL) {
 		if (base == NULL)
@@ -3324,6 +3329,7 @@ PyType_Ready(PyTypeObject *type)
 	}
 
 	/* Initialize tp_dict */
+    // tp_dict 空字典
 	dict = type->tp_dict;
 	if (dict == NULL) {
 		dict = PyDict_New();
@@ -3333,6 +3339,7 @@ PyType_Ready(PyTypeObject *type)
 	}
 
 	/* Add type-specific descriptors to tp_dict */
+    // 填充tp_dict
 	if (add_operators(type) < 0)
 		goto error;
 	if (type->tp_methods != NULL) {
@@ -3492,7 +3499,7 @@ check_num_args(PyObject *ob, int n)
 	if (n == PyTuple_GET_SIZE(ob))
 		return 1;
 	PyErr_Format(
-	    PyExc_TypeError, 
+	    PyExc_TypeError,
 	    "expected %d arguments, got %zd", n, PyTuple_GET_SIZE(ob));
 	return 0;
 }
@@ -4544,11 +4551,11 @@ SLOT1(slot_nb_inplace_multiply, "__imul__", PyObject *, "O")
 SLOT1(slot_nb_inplace_divide, "__idiv__", PyObject *, "O")
 SLOT1(slot_nb_inplace_remainder, "__imod__", PyObject *, "O")
 /* Can't use SLOT1 here, because nb_inplace_power is ternary */
-static PyObject * 
-slot_nb_inplace_power(PyObject *self, PyObject * arg1, PyObject *arg2) 
-{ 
-  static PyObject *cache_str; 
-  return call_method(self, "__ipow__", &cache_str, "(" "O" ")", arg1); 
+static PyObject *
+slot_nb_inplace_power(PyObject *self, PyObject * arg1, PyObject *arg2)
+{
+  static PyObject *cache_str;
+  return call_method(self, "__ipow__", &cache_str, "(" "O" ")", arg1);
 }
 SLOT1(slot_nb_inplace_lshift, "__ilshift__", PyObject *, "O")
 SLOT1(slot_nb_inplace_rshift, "__irshift__", PyObject *, "O")
@@ -5249,7 +5256,7 @@ static slotdef slotdefs[] = {
 	       "oct(x)"),
 	UNSLOT("__hex__", nb_hex, slot_nb_hex, wrap_unaryfunc,
 	       "hex(x)"),
-	NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc, 
+	NBSLOT("__index__", nb_index, slot_nb_index, wrap_unaryfunc,
 	       "x[y:z] <==> x[y.__index__():z.__index__()]"),
 	IBSLOT("__iadd__", nb_inplace_add, slot_nb_inplace_add,
 	       wrap_binaryfunc, "+"),
@@ -5511,7 +5518,7 @@ slotdef_cmp(const void *aa, const void *bb)
 	if (c != 0)
 		return c;
 	else
-		/* Cannot use a-b, as this gives off_t, 
+		/* Cannot use a-b, as this gives off_t,
 		   which may lose precision when converted to int. */
 		return (a > b) ? 1 : (a < b) ? -1 : 0;
 }
@@ -5795,12 +5802,12 @@ super_getattro(PyObject *self, PyObject *name)
 				if (f != NULL) {
 					tmp = f(res,
 						/* Only pass 'obj' param if
-						   this is instance-mode super 
+						   this is instance-mode super
 						   (See SF ID #743627)
 						*/
 						(su->obj == (PyObject *)
-							    su->obj_type 
-							? (PyObject *)NULL 
+							    su->obj_type
+							? (PyObject *)NULL
 							: su->obj),
 						(PyObject *)starttype);
 					Py_DECREF(res);
