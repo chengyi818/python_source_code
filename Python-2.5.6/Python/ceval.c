@@ -4150,11 +4150,14 @@ build_class(PyObject *methods, PyObject *bases, PyObject *name)
 {
 	PyObject *metaclass = NULL, *result, *base;
 
+    // 决定metaclass
 	if (PyDict_Check(methods))
+        // 尝试从属性列表中获取metaclass
 		metaclass = PyDict_GetItemString(methods, "__metaclass__");
 	if (metaclass != NULL)
 		Py_INCREF(metaclass);
 	else if (PyTuple_Check(bases) && PyTuple_GET_SIZE(bases) > 0) {
+        //尝试使用第一个基类的metaclass
 		base = PyTuple_GET_ITEM(bases, 0);
 		metaclass = PyObject_GetAttrString(base, "__class__");
 		if (metaclass == NULL) {
@@ -4164,6 +4167,7 @@ build_class(PyObject *methods, PyObject *bases, PyObject *name)
 		}
 	}
 	else {
+        // 或许是classic class经典类
 		PyObject *g = PyEval_GetGlobals();
 		if (g != NULL && PyDict_Check(g))
 			metaclass = PyDict_GetItemString(g, "__metaclass__");
@@ -4171,6 +4175,8 @@ build_class(PyObject *methods, PyObject *bases, PyObject *name)
 			metaclass = (PyObject *) &PyClass_Type;
 		Py_INCREF(metaclass);
 	}
+
+    // 创建class对象
 	result = PyObject_CallFunctionObjArgs(metaclass, name, bases, methods, NULL);
 	Py_DECREF(metaclass);
 	if (result == NULL && PyErr_ExceptionMatches(PyExc_TypeError)) {

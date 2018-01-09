@@ -1687,6 +1687,8 @@ _unicode_to_string(PyObject *slots, Py_ssize_t nslots)
 static PyObject *
 type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 {
+    // metatype是PyType_Type
+    // args包含了(类名, 基类列表, 属性列表)
 	PyObject *name, *bases, *dict;
 	static char *kwlist[] = {"name", "bases", "dict", 0};
 	PyObject *slots, *tmp, *newslots;
@@ -1721,6 +1723,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	}
 
 	/* Check arguments: (name, bases, dict) */
+    // 将args拆解为(类名, 基类列表, 属性列表)
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "SO!O!:type", kwlist,
 					 &name,
 					 &PyTuple_Type, &bases,
@@ -1731,6 +1734,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	   and check for metatype conflicts while we're at it.
 	   Note that if some other metatype wins to contract,
 	   it's possible that its instances are not types. */
+    // 确定最佳的metaclass, 并存储在metatype中
 	nbases = PyTuple_GET_SIZE(bases);
 	winner = metatype;
 	for (i = 0; i < nbases; i++) {
@@ -1756,8 +1760,10 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 			return winner->tp_new(winner, args, kwds);
 		metatype = winner;
 	}
+    // 确定metaclassa完毕
 
 	/* Adjust for empty tuple bases */
+    // 确定最佳基类列表
 	if (nbases == 0) {
 		bases = PyTuple_Pack(1, &PyBaseObject_Type);
 		if (bases == NULL)
@@ -1782,6 +1788,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 		Py_DECREF(bases);
 		return NULL;
 	}
+    // 确定最佳基类列表 完毕
 
 	/* Check for a __slots__ sequence variable in dict, and count it */
 	slots = PyDict_GetItemString(dict, "__slots__");
@@ -1923,6 +1930,8 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	   "return NULL" may leak slots! */
 
 	/* Allocate the type object */
+    // 为新的class对象申请内存
+    // 创建的内存大小: tp_basicsize + tp_itemsize
 	type = (PyTypeObject *)metatype->tp_alloc(metatype, nslots);
 	if (type == NULL) {
 		Py_XDECREF(slots);
@@ -1949,6 +1958,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 		type->tp_flags |= Py_TPFLAGS_CHECKTYPES;
 
 	/* Initialize essential fields */
+    // 设置新的classa对象中的各个域
 	type->tp_as_number = &et->as_number;
 	type->tp_as_sequence = &et->as_sequence;
 	type->tp_as_mapping = &et->as_mapping;
@@ -1956,6 +1966,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	type->tp_name = PyString_AS_STRING(name);
 
 	/* Set tp_base and tp_bases */
+    // 设置新的class对象的基类和基类列表
 	type->tp_bases = bases;
 	Py_INCREF(base);
 	type->tp_base = base;
