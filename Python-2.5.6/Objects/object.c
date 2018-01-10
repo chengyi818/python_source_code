@@ -1283,6 +1283,7 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 	}
 
 	/* Inline _PyType_Lookup */
+    // 在class对象的mro列表中,寻找descriptor
 	{
 		Py_ssize_t i, n;
 		PyObject *mro, *base, *dict;
@@ -1309,6 +1310,7 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 
 	Py_XINCREF(descr);
 
+    // 通过descriptor访问属性
 	f = NULL;
 	if (descr != NULL &&
 	    PyType_HasFeature(descr->ob_type, Py_TPFLAGS_HAVE_CLASS)) {
@@ -1319,8 +1321,10 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 			goto done;
 		}
 	}
+    // 通过descriptor访问属性,完毕
 
 	/* Inline _PyObject_GetDictPtr */
+    // 通过descriptor访问属性失败,则在instance对象的__dict__中查找
 	dictoffset = tp->tp_dictoffset;
 	if (dictoffset != 0) {
 		PyObject *dict;

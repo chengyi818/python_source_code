@@ -419,6 +419,7 @@ type_call(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		return NULL;
 	}
 
+    // 调用tp_new
 	obj = type->tp_new(type, args, kwds);
 	if (obj != NULL) {
 		/* Ugly exception: when the call was type(something),
@@ -432,6 +433,7 @@ type_call(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		   it won't be initialized. */
 		if (!PyType_IsSubtype(obj->ob_type, type))
 			return obj;
+        // 调用tp_init
 		type = obj->ob_type;
 		if (PyType_HasFeature(type, Py_TPFLAGS_HAVE_CLASS) &&
 		    type->tp_init != NULL &&
@@ -1972,6 +1974,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	type->tp_base = base;
 
 	/* Initialize tp_dict from passed-in dict */
+    // 将属性列表放到新建class对象的tp_dict
 	type->tp_dict = dict = PyDict_Copy(dict);
 	if (dict == NULL) {
 		Py_DECREF(type);
@@ -2011,6 +2014,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 
 	/* Special-case __new__: if it's a plain function,
 	   make it a static function */
+    // 如果自定义了__new__方法,将之改造为static方法
 	tmp = PyDict_GetItemString(dict, "__new__");
 	if (tmp != NULL && PyFunction_Check(tmp)) {
 		tmp = PyStaticMethod_New(tmp);
@@ -2023,8 +2027,9 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	}
 
 	/* Add descriptors for custom slots from __slots__, or for __dict__ */
+    // 设置了class对象实例化的大小
 	mp = PyHeapType_GET_MEMBERS(et);
-	slotoffset = base->tp_basicsize;
+	slotoffset = base->tp_basicsize; // 通常是一个PyObject
 	if (slots != NULL) {
 		for (i = 0; i < nslots; i++, mp++) {
 			mp->name = PyString_AS_STRING(
@@ -2054,6 +2059,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 	type->tp_basicsize = slotoffset;
 	type->tp_itemsize = base->tp_itemsize;
 	type->tp_members = PyHeapType_GET_MEMBERS(et);
+    // 设置完毕
 
 	if (type->tp_weaklistoffset && type->tp_dictoffset)
 		type->tp_getset = subtype_getsets_full;
@@ -2089,12 +2095,15 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 		type->tp_free = PyObject_Del;
 
 	/* Initialize the rest */
+    // 初始化新建class
 	if (PyType_Ready(type) < 0) {
 		Py_DECREF(type);
 		return NULL;
 	}
 
 	/* Put the proper slots in place */
+    // 如果重载了方法,此时方法是在tp_dict之中
+    // 我们将这些方法挪到type函数指针指向的位置.
 	fixup_slot_dispatchers(type);
 
 	return (PyObject *)type;
