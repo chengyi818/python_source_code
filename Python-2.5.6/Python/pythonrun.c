@@ -229,11 +229,13 @@ Py_InitializeEx(int install_sigs)
 	Py_INCREF(interp->sysdict);
     // 备份sys module
 	_PyImport_FixupExtension("sys", "sys");
-    // 设置搜索路径
+    // 设置搜索路径,set sys.path
 	PySys_SetPath(Py_GetPath());
+    // 将modules放入interp->sysdict,即sys.modules
 	PyDict_SetItemString(interp->sysdict, "modules",
 			     interp->modules);
 
+    // 初始化import环境
 	_PyImport_Init();
 
 	/* initialize builtin exceptions */

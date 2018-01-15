@@ -1249,8 +1249,10 @@ void
 PySys_SetPath(char *path)
 {
 	PyObject *v;
+    // v: list对象.value为字符串对象,即一个个路径
 	if ((v = makepathobject(path, DELIM)) == NULL)
 		Py_FatalError("can't create sys.path");
+    // 将path list插入sysdict中.
 	if (PySys_SetObject("path", v) != 0)
 		Py_FatalError("can't assign sys.path");
 	Py_DECREF(v);
