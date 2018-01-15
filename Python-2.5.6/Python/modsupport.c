@@ -34,15 +34,17 @@ Py_InitModule4(const char *name, PyMethodDef *methods, const char *doc,
 {
 	PyObject *m, *d, *v, *n;
 	PyMethodDef *ml;
+    // 检查进程属性
 	if (!Py_IsInitialized())
 	    Py_FatalError("Interpreter not initialized (version mismatch?)");
+    // 检查python api版本
 	if (module_api_version != PYTHON_API_VERSION) {
 		char message[512];
-		PyOS_snprintf(message, sizeof(message), 
-			      api_version_warning, name, 
-			      PYTHON_API_VERSION, name, 
+		PyOS_snprintf(message, sizeof(message),
+			      api_version_warning, name,
+			      PYTHON_API_VERSION, name,
 			      module_api_version);
-		if (PyErr_Warn(PyExc_RuntimeWarning, message)) 
+		if (PyErr_Warn(PyExc_RuntimeWarning, message))
 			return NULL;
 	}
 	/* Make sure name is fully qualified.
@@ -61,13 +63,16 @@ Py_InitModule4(const char *name, PyMethodDef *methods, const char *doc,
 			_Py_PackageContext = NULL;
 		}
 	}
+    // 创建module
 	if ((m = PyImport_AddModule(name)) == NULL)
 		return NULL;
+    // 设置module中的属性
 	d = PyModule_GetDict(m);
 	if (methods != NULL) {
 		n = PyString_FromString(name);
 		if (n == NULL)
 			return NULL;
+        // 将methods中的C Function,填充到module对应的dict中
 		for (ml = methods; ml->ml_name != NULL; ml++) {
 			if ((ml->ml_flags & METH_CLASS) ||
 			    (ml->ml_flags & METH_STATIC)) {
@@ -91,6 +96,7 @@ Py_InitModule4(const char *name, PyMethodDef *methods, const char *doc,
 		}
 		Py_DECREF(n);
 	}
+    // 设置module的doc
 	if (doc != NULL) {
 		v = PyString_FromString(doc);
 		if (v == NULL || PyDict_SetItemString(d, "__doc__", v) != 0) {
@@ -246,7 +252,7 @@ _ustrlen(Py_UNICODE *u)
 {
 	int i = 0;
 	Py_UNICODE *v = u;
-	while (*v != 0) { i++; v++; } 
+	while (*v != 0) { i++; v++; }
 	return i;
 }
 #endif
@@ -310,7 +316,7 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 		case 'h':
 		case 'i':
 			return PyInt_FromLong((long)va_arg(*p_va, int));
-			
+
 		case 'H':
 			return PyInt_FromLong((long)va_arg(*p_va, unsigned int));
 
@@ -323,7 +329,7 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 			else
 				return PyInt_FromLong(n);
 		}
-		
+
 		case 'n':
 #if SIZEOF_SIZE_T!=SIZEOF_LONG
 			return PyInt_FromSsize_t(va_arg(*p_va, Py_ssize_t));
@@ -354,7 +360,7 @@ do_mkvalue(const char **p_format, va_list *p_va, int flags)
 		{
 			PyObject *v;
 			Py_UNICODE *u = va_arg(*p_va, Py_UNICODE *);
-			Py_ssize_t n;	
+			Py_ssize_t n;
 			if (**p_format == '#') {
 				++*p_format;
 				if (flags & FLAG_SIZE_T)
@@ -618,13 +624,13 @@ PyModule_AddObject(PyObject *m, const char *name, PyObject *o)
 	return 0;
 }
 
-int 
+int
 PyModule_AddIntConstant(PyObject *m, const char *name, long value)
 {
 	return PyModule_AddObject(m, name, PyInt_FromLong(value));
 }
 
-int 
+int
 PyModule_AddStringConstant(PyObject *m, const char *name, const char *value)
 {
 	return PyModule_AddObject(m, name, PyString_FromString(value));

@@ -184,15 +184,19 @@ Py_InitializeEx(int install_sigs)
 
 	_Py_ReadyTypes();
 
+    // 创建了builtin objects: string类型
 	if (!_PyFrame_Init())
 		Py_FatalError("Py_Initialize: can't init frames");
 
+    // 初始化int类型
 	if (!_PyInt_Init())
 		Py_FatalError("Py_Initialize: can't init ints");
 
+    // 初始化float类型
 	_PyFloat_Init();
 
-	interp->modules = PyDict_New();
+    // 开始设置系统module
+	interp->modules = PyDict_New(); // 维护所有线程共享的module
 	if (interp->modules == NULL)
 		Py_FatalError("Py_Initialize: can't make modules dictionary");
 	interp->modules_reloading = PyDict_New();
@@ -204,22 +208,28 @@ Py_InitializeEx(int install_sigs)
 	_PyUnicode_Init();
 #endif
 
+    // 设置__builtin__ module
 	bimod = _PyBuiltin_Init();
 	if (bimod == NULL)
 		Py_FatalError("Py_Initialize: can't initialize __builtin__");
+    // 从builtin module抽取dict,赋给interp->builtins,加速查找
 	interp->builtins = PyModule_GetDict(bimod);
 	if (interp->builtins == NULL)
 		Py_FatalError("Py_Initialize: can't initialize builtins dict");
 	Py_INCREF(interp->builtins);
 
+    // 设置 sys module
 	sysmod = _PySys_Init();
 	if (sysmod == NULL)
 		Py_FatalError("Py_Initialize: can't initialize sys");
+    // interp->sysdict赋值
 	interp->sysdict = PyModule_GetDict(sysmod);
 	if (interp->sysdict == NULL)
 		Py_FatalError("Py_Initialize: can't initialize sys dict");
 	Py_INCREF(interp->sysdict);
+    // 备份sys module
 	_PyImport_FixupExtension("sys", "sys");
+    // 设置搜索路径
 	PySys_SetPath(Py_GetPath());
 	PyDict_SetItemString(interp->sysdict, "modules",
 			     interp->modules);
@@ -1230,7 +1240,7 @@ PyRun_StringFlags(const char *str, int start, PyObject *globals,
 	PyArena *arena = PyArena_New();
 	if (arena == NULL)
 		return NULL;
-	
+
 	mod = PyParser_ASTFromString(str, "<string>", start, flags, arena);
 	if (mod != NULL)
 		ret = run_mod(mod, "<string>", globals, locals, flags, arena);
@@ -1247,7 +1257,7 @@ PyRun_FileExFlags(FILE *fp, const char *filename, int start, PyObject *globals,
 	PyArena *arena = PyArena_New();
 	if (arena == NULL)
 		return NULL;
-	
+
 	mod = PyParser_ASTFromFile(fp, filename, start, 0, 0,
 				   flags, NULL, arena);
 	if (closeit)
@@ -1856,4 +1866,3 @@ PyRun_InteractiveLoop(FILE *f, const char *p)
 #ifdef __cplusplus
 }
 #endif
-

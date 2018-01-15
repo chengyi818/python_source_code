@@ -550,7 +550,7 @@ builtin_eval(PyObject *self, PyObject *args)
 		locals = globals;
 
 	if (globals == NULL || locals == NULL) {
-		PyErr_SetString(PyExc_TypeError, 
+		PyErr_SetString(PyExc_TypeError,
 			"eval must be given globals and locals "
 			"when called without a frame");
 		return NULL;
@@ -2293,6 +2293,7 @@ PyObject *
 _PyBuiltin_Init(void)
 {
 	PyObject *mod, *dict, *debug;
+    // 创建PyModuleObject,并填充部分属性
 	mod = Py_InitModule4("__builtin__", builtin_methods,
 			     builtin_doc, (PyObject *)NULL,
 			     PYTHON_API_VERSION);
@@ -2317,6 +2318,7 @@ _PyBuiltin_Init(void)
 		return NULL;						\
 	ADD_TO_ALL(OBJECT)
 
+    // 设置builtin module属性
 	SETBUILTIN("None",		Py_None);
 	SETBUILTIN("Ellipsis",		Py_Ellipsis);
 	SETBUILTIN("NotImplemented",	Py_NotImplemented);
@@ -2624,7 +2626,7 @@ filterunicode(PyObject *func, PyObject *strobj)
 			else {
 				/* do we need more space? */
 				Py_ssize_t need = j + reslen + len - i - 1;
-        
+
 				/* check that didnt overflow */
 				if ((j > PY_SSIZE_T_MAX - reslen) ||
 					((j + reslen) > PY_SSIZE_T_MAX - len) ||
@@ -2636,7 +2638,7 @@ filterunicode(PyObject *func, PyObject *strobj)
 
 				assert(need >= 0);
 				assert(outlen >= 0);
-				
+
 				if (need > outlen) {
 					/* overallocate,
 					   to avoid reallocations */

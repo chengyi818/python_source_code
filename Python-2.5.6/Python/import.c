@@ -20,7 +20,7 @@
 #include <fcntl.h>
 #endif
 #ifdef __cplusplus
-extern "C" { 
+extern "C" {
 #endif
 
 extern time_t PyOS_GetLastModificationTime(char *, FILE *);
@@ -600,12 +600,15 @@ PyImport_AddModule(const char *name)
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m;
 
+    // 检查在interp中,是否已存在name的module
 	if ((m = PyDict_GetItemString(modules, name)) != NULL &&
 	    PyModule_Check(m))
 		return m;
+    // 创建名为name的module
 	m = PyModule_New(name);
 	if (m == NULL)
 		return NULL;
+    // 将moduleu加入interp->modules字典
 	if (PyDict_SetItemString(modules, name, m) != 0) {
 		Py_DECREF(m);
 		return NULL;
@@ -817,7 +820,7 @@ parse_source_module(const char *pathname, FILE *fp)
 	if (arena == NULL)
 		return NULL;
 
-	mod = PyParser_ASTFromFile(fp, pathname, Py_file_input, 0, 0, 0, 
+	mod = PyParser_ASTFromFile(fp, pathname, Py_file_input, 0, 0, 0,
 				   NULL, arena);
 	if (mod) {
 		co = PyAST_Compile(mod, pathname, NULL, arena);
@@ -1330,7 +1333,7 @@ find_module(char *fullname, char *subname, PyObject *path, char *buf,
 			else {
 				char warnstr[MAXPATHLEN+80];
 				sprintf(warnstr, "Not importing directory "
-					"'%.*s': missing __init__.py", 
+					"'%.*s': missing __init__.py",
 					MAXPATHLEN, buf);
 				if (PyErr_Warn(PyExc_ImportWarning,
 					       warnstr)) {
@@ -1351,7 +1354,7 @@ find_module(char *fullname, char *subname, PyObject *path, char *buf,
 			else {
 				char warnstr[MAXPATHLEN+80];
 				sprintf(warnstr, "Not importing directory "
-					"'%.*s': missing __init__.py", 
+					"'%.*s': missing __init__.py",
 					MAXPATHLEN, buf);
 				if (PyErr_Warn(PyExc_ImportWarning,
 					       warnstr)) {
@@ -2426,7 +2429,7 @@ PyImport_ReloadModule(PyObject *m)
 	struct filedescr *fdp;
 	FILE *fp = NULL;
 	PyObject *newm;
-    
+
 	if (modules_reloading == NULL) {
 		Py_FatalError("PyImport_ReloadModule: "
 							"no modules_reloading dictionary!");
