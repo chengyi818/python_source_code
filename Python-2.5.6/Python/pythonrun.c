@@ -229,7 +229,7 @@ Py_InitializeEx(int install_sigs)
 	Py_INCREF(interp->sysdict);
     // 备份sys module
 	_PyImport_FixupExtension("sys", "sys");
-    // 设置搜索路径,set sys.path
+    // 设置搜索路径,即sys.path
 	PySys_SetPath(Py_GetPath());
     // 将modules放入interp->sysdict,即sys.modules
 	PyDict_SetItemString(interp->sysdict, "modules",
@@ -239,18 +239,24 @@ Py_InitializeEx(int install_sigs)
 	_PyImport_Init();
 
 	/* initialize builtin exceptions */
+    // 初始化内建exceptions
 	_PyExc_Init();
+    // 备份exceptions
 	_PyImport_FixupExtension("exceptions", "exceptions");
 
 	/* phase 2 of builtins */
+    // 备份__builtin__
 	_PyImport_FixupExtension("__builtin__", "__builtin__");
 
+    // 在sys modules中添加对象,用于import机制
 	_PyImportHooks_Init();
 
 	if (install_sigs)
 		initsigs(); /* Signal handling stuff, including initintr() */
 
+    // 设置__main__ module
 	initmain(); /* Module __main__ */
+    // 设置site-specific module搜索路径
 	if (!Py_NoSiteFlag)
 		initsite(); /* Module site */
 
@@ -654,9 +660,11 @@ static void
 initmain(void)
 {
 	PyObject *m, *d;
+    // 创建__main__,并将之加入interp->modules
 	m = PyImport_AddModule("__main__");
 	if (m == NULL)
 		Py_FatalError("can't create __main__ module");
+    // 将sys.modules中的__builtin__加入__main__module中
 	d = PyModule_GetDict(m);
 	if (PyDict_GetItemString(d, "__builtins__") == NULL) {
 		PyObject *bimod = PyImport_ImportModule("__builtin__");
@@ -673,6 +681,7 @@ static void
 initsite(void)
 {
 	PyObject *m, *f;
+    // import site
 	m = PyImport_ImportModule("site");
 	if (m == NULL) {
 		f = PySys_GetObject("stderr");
