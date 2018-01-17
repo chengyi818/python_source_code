@@ -173,10 +173,12 @@ Py_InitializeEx(int install_sigs)
 	if ((p = Py_GETENV("PYTHONOPTIMIZE")) && *p != '\0')
 		Py_OptimizeFlag = add_flag(Py_OptimizeFlag, p);
 
+    // 创建一个interp结构体,空壳
 	interp = PyInterpreterState_New();
 	if (interp == NULL)
 		Py_FatalError("Py_Initialize: can't make first interpreter");
 
+    // 创建一个thread结构体,挂到interp下
 	tstate = PyThreadState_New(interp);
 	if (tstate == NULL)
 		Py_FatalError("Py_Initialize: can't make first thread");
@@ -209,6 +211,7 @@ Py_InitializeEx(int install_sigs)
 #endif
 
     // 设置__builtin__ module
+    // 并将module添加到interp->modules
 	bimod = _PyBuiltin_Init();
 	if (bimod == NULL)
 		Py_FatalError("Py_Initialize: can't initialize __builtin__");
@@ -219,6 +222,7 @@ Py_InitializeEx(int install_sigs)
 	Py_INCREF(interp->builtins);
 
     // 设置 sys module
+    // 并将module添加到interp->modules
 	sysmod = _PySys_Init();
 	if (sysmod == NULL)
 		Py_FatalError("Py_Initialize: can't initialize sys");
