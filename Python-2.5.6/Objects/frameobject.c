@@ -369,7 +369,7 @@ static PyGetSetDef frame_getsetlist[] = {
    the following fields are still valid:
 
      * ob_type, ob_size, f_code, f_valuestack;
-       
+
      * f_locals, f_trace,
        f_exc_type, f_exc_value, f_exc_traceback are NULL;
 
@@ -438,7 +438,7 @@ frame_dealloc(PyFrameObject *f)
 		f->f_back = free_list;
 		free_list = f;
         }
-	else 
+	else
 		PyObject_GC_Del(f);
 
         Py_DECREF(co);
@@ -568,6 +568,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 		return NULL;
 	}
 #endif
+    // 设置builtin名字空间
 	if (back == NULL || back->f_globals != globals) {
 		builtins = PyDict_GetItem(globals, builtin_object);
 		if (builtins) {
@@ -598,60 +599,62 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 		assert(builtins != NULL && PyDict_Check(builtins));
 		Py_INCREF(builtins);
 	}
-	if (code->co_zombieframe != NULL) {
-                f = code->co_zombieframe;
-                code->co_zombieframe = NULL;
-                _Py_NewReference((PyObject *)f);
-                assert(f->f_code == code);
-	}
+    if (code->co_zombieframe != NULL) {
+        f = code->co_zombieframe;
+        code->co_zombieframe = NULL;
+        _Py_NewReference((PyObject *)f);
+        assert(f->f_code == code);
+    } else {
+        Py_ssize_t extras, ncells, nfrees;
+        ncells = PyTuple_GET_SIZE(code->co_cellvars);
+        nfrees = PyTuple_GET_SIZE(code->co_freevars);
+        extras = code->co_stacksize + code->co_nlocals + ncells +
+            nfrees;
+        if (free_list == NULL) {
+            f = PyObject_GC_NewVar(PyFrameObject, &PyFrame_Type,
+                                   extras);
+            if (f == NULL) {
+                Py_DECREF(builtins);
+                return NULL;
+            }
+        }
         else {
-                Py_ssize_t extras, ncells, nfrees;
-                ncells = PyTuple_GET_SIZE(code->co_cellvars);
-                nfrees = PyTuple_GET_SIZE(code->co_freevars);
-                extras = code->co_stacksize + code->co_nlocals + ncells +
-                    nfrees;
-                if (free_list == NULL) {
-                    f = PyObject_GC_NewVar(PyFrameObject, &PyFrame_Type,
-                        extras);
-                    if (f == NULL) {
-                            Py_DECREF(builtins);
-                            return NULL;
-                    }
+            assert(numfree > 0);
+            --numfree;
+            f = free_list;
+            free_list = free_list->f_back;
+            if (f->ob_size < extras) {
+                f = PyObject_GC_Resize(PyFrameObject, f, extras);
+                if (f == NULL) {
+                    Py_DECREF(builtins);
+                    return NULL;
                 }
-                else {
-                    assert(numfree > 0);
-                    --numfree;
-                    f = free_list;
-                    free_list = free_list->f_back;
-                    if (f->ob_size < extras) {
-                            f = PyObject_GC_Resize(PyFrameObject, f, extras);
-                            if (f == NULL) {
-                                    Py_DECREF(builtins);
-                                    return NULL;
-                            }
-                    }
-                    _Py_NewReference((PyObject *)f);
-                }
+            }
+            _Py_NewReference((PyObject *)f);
+        }
 
-		f->f_code = code;
-		extras = code->co_nlocals + ncells + nfrees;
-		f->f_valuestack = f->f_localsplus + extras;
-		for (i=0; i<extras; i++)
-			f->f_localsplus[i] = NULL;
-		f->f_locals = NULL;
-		f->f_trace = NULL;
-                f->f_exc_type = f->f_exc_value = f->f_exc_traceback = NULL;
-	}
-	f->f_stacktop = f->f_valuestack;
-	f->f_builtins = builtins;
-	Py_XINCREF(back);
-	f->f_back = back;
-	Py_INCREF(code);
-	Py_INCREF(globals);
-	f->f_globals = globals;
-	/* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
-	if ((code->co_flags & (CO_NEWLOCALS | CO_OPTIMIZED)) ==
+        f->f_code = code;
+        extras = code->co_nlocals + ncells + nfrees;
+        f->f_valuestack = f->f_localsplus + extras;
+        for (i=0; i<extras; i++)
+            f->f_localsplus[i] = NULL;
+        f->f_locals = NULL;
+        f->f_trace = NULL;
+        f->f_exc_type = f->f_exc_value = f->f_exc_traceback = NULL;
+    }
+    f->f_stacktop = f->f_valuestack;
+    f->f_builtins = builtins;
+    Py_XINCREF(back);
+    f->f_back = back;
+    Py_INCREF(code);
+    Py_INCREF(globals);
+    // 设置global名字空间
+    f->f_globals = globals;
+    /* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
+    // 设置local名字空间
+    if ((code->co_flags & (CO_NEWLOCALS | CO_OPTIMIZED)) ==
 		(CO_NEWLOCALS | CO_OPTIMIZED))
+        // 调用函数不需要创建local名字空间
 		; /* f_locals = NULL; will be set by PyFrame_FastToLocals() */
 	else if (code->co_flags & CO_NEWLOCALS) {
 		locals = PyDict_New();
@@ -663,7 +666,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 	}
 	else {
 		if (locals == NULL)
-			locals = globals;
+			locals = globals; //一般情况下,locals和globals指向同一dict
 		Py_INCREF(locals);
                 f->f_locals = locals;
 	}
@@ -826,7 +829,7 @@ PyFrame_LocalsToFast(PyFrameObject *f, int clear)
 		dict_to_map(co->co_cellvars, ncells,
 			    locals, fast + co->co_nlocals, 1, clear);
 		dict_to_map(co->co_freevars, nfreevars,
-			    locals, fast + co->co_nlocals + ncells, 1, 
+			    locals, fast + co->co_nlocals + ncells, 1,
  			    clear);
 	}
 	PyErr_Restore(error_type, error_value, error_traceback);

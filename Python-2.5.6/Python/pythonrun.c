@@ -120,7 +120,7 @@ static int initialized = 0;
 /* API to access the initialized flag -- useful for esoteric use */
 
 int
-Py_IsInitialized(void)
+Py_IsInitialized(void)wneti
 {
 	return initialized;
 }
@@ -730,17 +730,20 @@ PyRun_InteractiveLoopFlags(FILE *fp, const char *filename, PyCompilerFlags *flag
 		flags = &local_flags;
 		local_flags.cf_flags = 0;
 	}
+    // 创建交互式环境提示符">>>"
 	v = PySys_GetObject("ps1");
 	if (v == NULL) {
 		PySys_SetObject("ps1", v = PyString_FromString(">>> "));
 		Py_XDECREF(v);
 	}
+    // 创建交互式环境提示符"..."
 	v = PySys_GetObject("ps2");
 	if (v == NULL) {
 		PySys_SetObject("ps2", v = PyString_FromString("... "));
 		Py_XDECREF(v);
 	}
 	for (;;) {
+        // 进入交互式环境
 		ret = PyRun_InteractiveOneFlags(fp, filename, flags);
 		PRINT_TOTAL_REFS();
 		if (ret == E_EOF)
@@ -784,6 +787,7 @@ PyRun_InteractiveOneFlags(FILE *fp, const char *filename, PyCompilerFlags *flags
 		else if (PyString_Check(w))
 			ps2 = PyString_AsString(w);
 	}
+    // 编译用户在交互式环境下输入的Python语句
 	arena = PyArena_New();
 	if (arena == NULL) {
 		Py_XDECREF(v);
@@ -804,12 +808,14 @@ PyRun_InteractiveOneFlags(FILE *fp, const char *filename, PyCompilerFlags *flags
 		PyErr_Print();
 		return -1;
 	}
+    // 获取<module __main__>中维护的dict
 	m = PyImport_AddModule("__main__");
 	if (m == NULL) {
 		PyArena_Free(arena);
 		return -1;
 	}
 	d = PyModule_GetDict(m);
+    // 执行python语句
 	v = run_mod(mod, filename, d, d, flags, arena);
 	PyArena_Free(arena);
 	if (v == NULL) {
@@ -873,6 +879,7 @@ PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
 	if (m == NULL)
 		return -1;
 	d = PyModule_GetDict(m);
+    // 在<module __main__>中设置__file__属性
 	if (PyDict_GetItemString(d, "__file__") == NULL) {
 		PyObject *f = PyString_FromString(filename);
 		if (f == NULL)
@@ -884,6 +891,7 @@ PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
 		Py_DECREF(f);
 	}
 	ext = filename + strlen(filename) - 4;
+    // 执行pyc文件
 	if (maybe_pyc_file(fp, filename, ext, closeit)) {
 		/* Try to run a pyc file. First, re-open in binary */
 		if (closeit)
@@ -897,6 +905,7 @@ PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
 			Py_OptimizeFlag = 1;
 		v = run_pyc_file(fp, filename, d, d, flags);
 	} else {
+        // 执行py文件
 		v = PyRun_FileExFlags(fp, filename, Py_file_input, d, d,
 				      closeit, flags);
 	}
