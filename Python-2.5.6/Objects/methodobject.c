@@ -74,6 +74,7 @@ PyCFunction_Call(PyObject *func, PyObject *arg, PyObject *kw)
 		break;
 	case METH_VARARGS | METH_KEYWORDS:
 	case METH_OLDARGS | METH_KEYWORDS:
+        // 抽取func中的meth,然后调用.即调用builtin___import__
 		return (*(PyCFunctionWithKeywords)meth)(self, arg, kw);
 	case METH_NOARGS:
 		if (kw == NULL || PyDict_Size(kw) == 0) {
@@ -354,7 +355,7 @@ PyCFunction_Fini(void)
    but it's part of the API so we need to keep a function around that
    existing C extensions can call.
 */
-   
+
 #undef PyCFunction_New
 PyAPI_FUNC(PyObject *) PyCFunction_New(PyMethodDef *, PyObject *);
 

@@ -2055,7 +2055,9 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			continue;
 
 		case IMPORT_NAME:
+            // 模块名 字符串对象
 			w = GETITEM(names, oparg);
+            // 内置函数 PyCFunctionObject builtin___import__
 			x = PyDict_GetItemString(f->f_builtins, "__import__");
 			if (x == NULL) {
 				PyErr_SetString(PyExc_ImportError,
@@ -2063,6 +2065,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 				break;
 			}
 			Py_INCREF(x);
+            // 栈上的两个参数
 			v = POP();
 			u = TOP();
 			if (PyInt_AsLong(u) != -1 || PyErr_Occurred())
@@ -2074,6 +2077,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 					    v,
 					    u);
 			else
+                // 模块名, 当前frame->globals, 当前模块frame->locals, None
 				w = PyTuple_Pack(4,
 					    w,
 					    f->f_globals,
