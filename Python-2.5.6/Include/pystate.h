@@ -15,15 +15,15 @@ struct _is; /* Forward */
 
 typedef struct _is {
 
-    struct _is *next;
-    struct _ts *tstate_head;
+    struct _is *next; //链表,链接不同的进程
+    struct _ts *tstate_head; // 链表,管理本进程下的线程
 
-    PyObject *modules;
-    PyObject *sysdict;
-    PyObject *builtins;
+    PyObject *modules; //字典, 管理所有的模块
+    PyObject *sysdict; //字典, sys module方法
+    PyObject *builtins; //字典, 内置方法
     PyObject *modules_reloading;
 
-    PyObject *codec_search_path;
+    PyObject *codec_search_path; // module搜索路径
     PyObject *codec_search_cache;
     PyObject *codec_error_registry;
 

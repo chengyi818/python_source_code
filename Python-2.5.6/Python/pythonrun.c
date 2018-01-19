@@ -182,6 +182,7 @@ Py_InitializeEx(int install_sigs)
 	tstate = PyThreadState_New(interp);
 	if (tstate == NULL)
 		Py_FatalError("Py_Initialize: can't make first thread");
+    // 设置当前线程
 	(void) PyThreadState_Swap(tstate);
 
 	_Py_ReadyTypes();
