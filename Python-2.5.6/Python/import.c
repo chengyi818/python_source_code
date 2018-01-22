@@ -1997,10 +1997,12 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
 	Py_ssize_t buflen = 0;
 	PyObject *parent, *head, *next, *tail;
 
+    // 获得import动作发生的package环境
 	parent = get_parent(globals, buf, &buflen, level);
 	if (parent == NULL)
 		return NULL;
 
+    // 解析module 路径, 依次加载
 	head = load_next(parent, Py_None, &name, buf, &buflen);
 	if (head == NULL)
 		return NULL;
@@ -2027,17 +2029,21 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
 		return NULL;
 	}
 
+    // 开始处理 from *** import ***
+    // 错误检查
 	if (fromlist != NULL) {
 		if (fromlist == Py_None || !PyObject_IsTrue(fromlist))
 			fromlist = NULL;
 	}
 
+    // 形式不是 from *** import ***,返回head
 	if (fromlist == NULL) {
 		Py_DECREF(tail);
 		return head;
 	}
 
 	Py_DECREF(head);
+    // 形式是 from *** import ***,返回tail
 	if (!ensure_fromlist(tail, fromlist, buf, buflen, 0)) {
 		Py_DECREF(tail);
 		return NULL;
@@ -2220,6 +2226,7 @@ load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 	p[len] = '\0';
 	*p_buflen = p+len-buf;
 
+    // 核心逻辑
 	result = import_submodule(mod, p, buf);
 	if (result == Py_None && altmod != mod) {
 		Py_DECREF(result);
@@ -2390,6 +2397,7 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 		}
 
 		buf[0] = '\0';
+        // 查找模块
 		fdp = find_module(fullname, subname, path, buf, MAXPATHLEN+1,
 				  &fp, &loader);
 		Py_XDECREF(path);
@@ -2400,6 +2408,7 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
+        // 加载模块
 		m = load_module(fullname, fp, buf, fdp->type, loader);
 		Py_XDECREF(loader);
 		if (fp)
