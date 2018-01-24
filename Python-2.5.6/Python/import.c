@@ -111,6 +111,13 @@ static PyTypeObject NullImporterType;	/* Forward reference */
 void
 _PyImport_Init(void)
 {
+    /*
+    基于标准的_PyImport_StandardFiletab
+    特定平台对应的_PyImport_DynLoadFiletab
+    来重组全局变量_PyImport_Filetab
+    该变量用来定义特定文件后缀对应的文件类型
+    所有可能的模块元信息 组合
+    */
 	const struct filedescr *scan;
 	struct filedescr *filetab;
 	int countD = 0;
@@ -649,6 +656,7 @@ PyImport_ExecCodeModuleEx(char *name, PyObject *co, char *pathname)
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m, *d, *v;
 
+    // 新建一个名为name的module
 	m = PyImport_AddModule(name);
 	if (m == NULL)
 		return NULL;
@@ -675,6 +683,7 @@ PyImport_ExecCodeModuleEx(char *name, PyObject *co, char *pathname)
 		PyErr_Clear(); /* Not important enough to report */
 	Py_DECREF(v);
 
+    // 执行PyCodeObject
 	v = PyEval_EvalCode((PyCodeObject *)co, d, d);
 	if (v == NULL)
 		goto error;
@@ -936,6 +945,7 @@ load_source_module(char *name, char *pathname, FILE *fp)
 		return NULL;
 	}
 #endif
+    // 编译生成PyCodeObject
 	cpathname = make_compiled_pathname(pathname, buf,
 					   (size_t)MAXPATHLEN + 1);
 	if (cpathname != NULL &&
@@ -959,6 +969,7 @@ load_source_module(char *name, char *pathname, FILE *fp)
 		if (cpathname)
 			write_compiled_module(co, cpathname, mtime);
 	}
+    // 执行PyCodeObject
 	m = PyImport_ExecCodeModuleEx(name, (PyObject *)co, pathname);
 	Py_DECREF(co);
 
@@ -986,6 +997,7 @@ load_package(char *name, char *pathname)
 	FILE *fp = NULL;
 	struct filedescr *fdp;
 
+    // 构建PyModuleObject, 并加入sys.modules
 	m = PyImport_AddModule(name);
 	if (m == NULL)
 		return NULL;
@@ -1005,6 +1017,7 @@ load_package(char *name, char *pathname)
 	if (err != 0)
 		goto error;
 	buf[0] = '\0';
+    // 在package目录中,查找__init__.py文件
 	fdp = find_module(name, "__init__", path, buf, sizeof(buf), &fp, NULL);
 	if (fdp == NULL) {
 		if (PyErr_ExceptionMatches(PyExc_ImportError)) {
@@ -1748,20 +1761,24 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 
 	switch (type) {
 
+        // py文件
 	case PY_SOURCE:
 		m = load_source_module(name, buf, fp);
 		break;
 
+        // pyc文件
 	case PY_COMPILED:
 		m = load_compiled_module(name, buf, fp);
 		break;
 
 #ifdef HAVE_DYNAMIC_LOADING
+        // pyd(dll)文件
 	case C_EXTENSION:
 		m = _PyImport_LoadDynamicModule(name, buf, fp);
 		break;
 #endif
 
+        // 加载package
 	case PKG_DIRECTORY:
 		m = load_package(name, buf);
 		break;
@@ -1771,6 +1788,7 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 		if (buf != NULL && buf[0] != '\0')
 			name = buf;
 		if (type == C_BUILTIN)
+            // 创建内建module
 			err = init_builtin(name);
 		else
 			err = PyImport_ImportFrozenModule(name);
@@ -1784,6 +1802,7 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 				     name);
 			return NULL;
 		}
+        // 确认内建module出现在sys.modules中,若没有抛出异常.
 		modules = PyImport_GetModuleDict();
 		m = PyDict_GetItemString(modules, name);
 		if (m == NULL) {
@@ -2238,10 +2257,12 @@ load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 	*p_buflen = p+len-buf;
 
     // 核心逻辑,加载模块
+    // 在主mod中加载
 	result = import_submodule(mod, p, buf);
 	if (result == Py_None && altmod != mod) {
 		Py_DECREF(result);
 		/* Here, altmod must be None and mod must not be None */
+        // 在备选mod中加载,通常是默认module 搜索 path
 		result = import_submodule(altmod, p, p);
 		if (result != NULL && result != Py_None) {
 			if (mark_miss(buf) != 0) {
@@ -2379,9 +2400,11 @@ add_submodule(PyObject *mod, PyObject *submod, char *fullname, char *subname,
 static PyObject *
 import_submodule(PyObject *mod, char *subname, char *fullname)
 {
-    // mod: importx执行环境
+    // mod: import执行环境
     // subname: 实际要加载的module
     // fullname: module全称
+
+    // 获取sys.modules
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m = NULL;
 
@@ -2414,6 +2437,9 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 
 		buf[0] = '\0';
         // 查找模块 subname
+        // fp: 被打开的module文件
+        // buf: modulea文件 绝对路径名
+        // fdp: module元信息
 		fdp = find_module(fullname, subname, path, buf, MAXPATHLEN+1,
 				  &fp, &loader);
 		Py_XDECREF(path);
@@ -2429,7 +2455,7 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 		Py_XDECREF(loader);
 		if (fp)
 			fclose(fp);
-        // 维护全局module集合 fullname sys.modules
+        // 维护当前module module集合 fullname
 		if (!add_submodule(mod, m, fullname, subname, modules)) {
 			Py_XDECREF(m);
 			m = NULL;

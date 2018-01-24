@@ -240,7 +240,7 @@ Py_InitializeEx(int install_sigs)
 	PyDict_SetItemString(interp->sysdict, "modules",
 			     interp->modules);
 
-    // 初始化import环境
+    // 初始化import环境, 构建module元信息 对应信息
 	_PyImport_Init();
 
 	/* initialize builtin exceptions */

@@ -21,8 +21,10 @@ enum filetype {
 };
 
 struct filedescr {
+    // 后缀
 	char *suffix;
 	char *mode;
+    // 文件类型
 	enum filetype type;
 };
 extern struct filedescr * _PyImport_Filetab;
