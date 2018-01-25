@@ -24,7 +24,7 @@ const struct filedescr _PyImport_DynLoadFiletab[] = {
    C RTL implementations */
 
 static int strcasecmp (char *string1, char *string2)
-{ 
+{
 	int first, second;
 
 	do {
@@ -35,7 +35,7 @@ static int strcasecmp (char *string1, char *string2)
 	} while (first && first == second);
 
 	return (first - second);
-} 
+}
 
 
 /* Function to return the name of the "python" DLL that the supplied module
@@ -144,7 +144,7 @@ static char *GetPythonImport (HINSTANCE hModule)
 						break;
 					}
 				}
-	    
+
 				if (pch) {
 					/* Found it - return the name */
 					return import_name;
@@ -164,13 +164,14 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 	dl_funcptr p;
 	char funcname[258], *import_python;
 
+    // 获取module的初始化函数名
 	PyOS_snprintf(funcname, sizeof(funcname), "init%.200s", shortname);
 
 	{
 		HINSTANCE hDLL = NULL;
 		char pathbuf[260];
 		LPTSTR dummy;
-		/* We use LoadLibraryEx so Windows looks for dependent DLLs 
+		/* We use LoadLibraryEx so Windows looks for dependent DLLs
 		    in directory of pathname first.  However, Windows95
 		    can sometimes not work correctly unless the absolute
 		    path is used.  If GetFullPathName() fails, the LoadLibrary
@@ -180,6 +181,7 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 				    pathbuf,
 				    &dummy))
 			/* XXX This call doesn't exist in Windows CE */
+            // 使用win32 API加载dll文件
 			hDLL = LoadLibraryEx(pathname, NULL,
 					     LOAD_WITH_ALTERED_SEARCH_PATH);
 		if (hDLL==NULL){
@@ -225,8 +227,10 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 				errBuf[sizeof(errBuf)-1] = '\0';
 			}
 			PyErr_SetString(PyExc_ImportError, errBuf);
+            // 加载失败,则抛出异常
 			return NULL;
 		} else {
+            // 获取当前Python对应的dll文件名
 			char buffer[256];
 
 #ifdef _DEBUG
@@ -235,8 +239,10 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 			PyOS_snprintf(buffer, sizeof(buffer), "python%d%d.dll",
 #endif
 				      PY_MAJOR_VERSION,PY_MINOR_VERSION);
+            // 获得module中所引用的python的dll文件名
 			import_python = GetPythonImport(hDLL);
 
+            // 确保当前python对应的dll即是module所引用的dll
 			if (import_python &&
 			    strcasecmp(buffer,import_python)) {
 				PyOS_snprintf(buffer, sizeof(buffer),
@@ -248,6 +254,7 @@ dl_funcptr _PyImport_GetDynLoadFunc(const char *fqname, const char *shortname,
 				return NULL;
 			}
 		}
+        // 调用win32 API获得module初始化函数地址
 		p = GetProcAddress(hDLL, funcname);
 	}
 

@@ -653,10 +653,12 @@ PyImport_ExecCodeModule(char *name, PyObject *co)
 PyObject *
 PyImport_ExecCodeModuleEx(char *name, PyObject *co, char *pathname)
 {
+    // 获得sys.modules
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m, *d, *v;
 
     // 新建一个名为name的module
+    // 如已存在,直接返回.
 	m = PyImport_AddModule(name);
 	if (m == NULL)
 		return NULL;
@@ -1772,7 +1774,8 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 		break;
 
 #ifdef HAVE_DYNAMIC_LOADING
-        // pyd(dll)文件
+        // Windows: pyd(dll)文件
+        // Linux: so文件
 	case C_EXTENSION:
 		m = _PyImport_LoadDynamicModule(name, buf, fp);
 		break;
@@ -1788,7 +1791,7 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 		if (buf != NULL && buf[0] != '\0')
 			name = buf;
 		if (type == C_BUILTIN)
-            // 创建内建module
+            // 加载未被初始记载的内建标准module, 如 math
 			err = init_builtin(name);
 		else
 			err = PyImport_ImportFrozenModule(name);
@@ -1848,9 +1851,11 @@ init_builtin(char *name)
 {
 	struct _inittab *p;
 
+    // 在内建module备份中,查找module
 	if (_PyImport_FindExtension(name, name) != NULL)
 		return 1;
 
+    // 遍历内建module集合,寻找匹配的module
 	for (p = PyImport_Inittab; p->name != NULL; p++) {
 		if (strcmp(name, p->name) == 0) {
 			if (p->initfunc == NULL) {
@@ -1861,9 +1866,11 @@ init_builtin(char *name)
 			}
 			if (Py_VerboseFlag)
 				PySys_WriteStderr("import %s # builtin\n", name);
+            // 初始化内建module
 			(*p->initfunc)();
 			if (PyErr_Occurred())
 				return -1;
+            // 备份module
 			if (_PyImport_FixupExtension(name, name) == NULL)
 				return -1;
 			return 1;
@@ -2065,6 +2072,7 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
 
 	Py_DECREF(head);
     // 形式是 from *** import ***,返回tail
+    // 确保在tail中发现所有fromlist中的符号
 	if (!ensure_fromlist(tail, fromlist, buf, buflen, 0)) {
 		Py_DECREF(tail);
 		return NULL;
@@ -2306,6 +2314,7 @@ ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, Py_ssize_t buflen,
 	for (i = 0; ; i++) {
 		PyObject *item = PySequence_GetItem(fromlist, i);
 		int hasit;
+        // 如果item为NULL, 则结束ensure动作
 		if (item == NULL) {
 			if (PyErr_ExceptionMatches(PyExc_IndexError)) {
 				PyErr_Clear();
@@ -2337,6 +2346,7 @@ ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, Py_ssize_t buflen,
 			continue;
 		}
 		hasit = PyObject_HasAttr(mod, item);
+        // hasit为false,意味着出现"from A import mod2"这样的情形
 		if (!hasit) {
 			char *subname = PyString_AS_STRING(item);
 			PyObject *submod;
