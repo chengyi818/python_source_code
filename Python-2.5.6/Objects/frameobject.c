@@ -648,7 +648,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
     f->f_back = back;
     Py_INCREF(code);
     Py_INCREF(globals);
-    // 设置global名字空间
+    // 设置global名字空间, globals是入参
     f->f_globals = globals;
     /* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
     // 设置local名字空间
