@@ -28,9 +28,9 @@
 
 /* The POSIX spec says that implementations supporting the sem_*
    family of functions must indicate this by defining
-   _POSIX_SEMAPHORES. */   
+   _POSIX_SEMAPHORES. */
 #ifdef _POSIX_SEMAPHORES
-/* On FreeBSD 4.x, _POSIX_SEMAPHORES is defined empty, so 
+/* On FreeBSD 4.x, _POSIX_SEMAPHORES is defined empty, so
    we need to add 0 to make it work there as well. */
 #if (_POSIX_SEMAPHORES+0) == -1
 #define HAVE_BROKEN_POSIX_SEMAPHORES
@@ -178,7 +178,7 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
         pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
 #endif
 
-	status = pthread_create(&th, 
+	status = pthread_create(&th,
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
 				 &attrs,
 #else
@@ -210,7 +210,7 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
      - It is not clear that the 'volatile' (for AIX?) and ugly casting in the
        latter return statement (for Alpha OSF/1) are any longer necessary.
 */
-long 
+long
 PyThread_get_thread_ident(void)
 {
 	volatile pthread_t threadid;
@@ -225,7 +225,7 @@ PyThread_get_thread_ident(void)
 #endif
 }
 
-static void 
+static void
 do_PyThread_exit_thread(int no_cleanup)
 {
 	dprintf(("PyThread_exit_thread called\n"));
@@ -237,20 +237,20 @@ do_PyThread_exit_thread(int no_cleanup)
 	}
 }
 
-void 
+void
 PyThread_exit_thread(void)
 {
 	do_PyThread_exit_thread(0);
 }
 
-void 
+void
 PyThread__exit_thread(void)
 {
 	do_PyThread_exit_thread(1);
 }
 
 #ifndef NO_EXIT_PROG
-static void 
+static void
 do_PyThread_exit_prog(int status, int no_cleanup)
 {
 	dprintf(("PyThread_exit_prog(%d) called\n", status));
@@ -261,13 +261,13 @@ do_PyThread_exit_prog(int status, int no_cleanup)
 			exit(status);
 }
 
-void 
+void
 PyThread_exit_prog(int status)
 {
 	do_PyThread_exit_prog(status, 0);
 }
 
-void 
+void
 PyThread__exit_prog(int status)
 {
 	do_PyThread_exit_prog(status, 1);
@@ -280,7 +280,7 @@ PyThread__exit_prog(int status)
  * Lock support.
  */
 
-PyThread_type_lock 
+PyThread_type_lock
 PyThread_allocate_lock(void)
 {
 	sem_t *lock;
@@ -306,7 +306,7 @@ PyThread_allocate_lock(void)
 	return (PyThread_type_lock)lock;
 }
 
-void 
+void
 PyThread_free_lock(PyThread_type_lock lock)
 {
 	sem_t *thelock = (sem_t *)lock;
@@ -335,7 +335,7 @@ fix_status(int status)
 	return (status == -1) ? errno : status;
 }
 
-int 
+int
 PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 {
 	int success;
@@ -356,14 +356,14 @@ PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 	} else if (status != EAGAIN) {
 		CHECK_STATUS("sem_trywait");
 	}
-	
+
 	success = (status == 0) ? 1 : 0;
 
 	dprintf(("PyThread_acquire_lock(%p, %d) -> %d\n", lock, waitflag, success));
 	return success;
 }
 
-void 
+void
 PyThread_release_lock(PyThread_type_lock lock)
 {
 	sem_t *thelock = (sem_t *)lock;
@@ -380,7 +380,7 @@ PyThread_release_lock(PyThread_type_lock lock)
 /*
  * Lock support.
  */
-PyThread_type_lock 
+PyThread_type_lock
 PyThread_allocate_lock(void)
 {
 	pthread_lock *lock;
@@ -413,7 +413,7 @@ PyThread_allocate_lock(void)
 	return (PyThread_type_lock) lock;
 }
 
-void 
+void
 PyThread_free_lock(PyThread_type_lock lock)
 {
 	pthread_lock *thelock = (pthread_lock *)lock;
@@ -430,7 +430,7 @@ PyThread_free_lock(PyThread_type_lock lock)
 	free((void *)thelock);
 }
 
-int 
+int
 PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 {
 	int success;
@@ -442,6 +442,7 @@ PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 	status = pthread_mutex_lock( &thelock->mut );
 	CHECK_STATUS("pthread_mutex_lock[1]");
 	success = thelock->locked == 0;
+    // waitflag用于标识当GIL不可用时,是否等待
 
 	if ( !success && waitflag ) {
 		/* continue trying until we get the lock */
@@ -464,7 +465,7 @@ PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 	return success;
 }
 
-void 
+void
 PyThread_release_lock(PyThread_type_lock lock)
 {
 	pthread_lock *thelock = (pthread_lock *)lock;

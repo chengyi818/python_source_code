@@ -219,13 +219,17 @@ PyEval_ThreadsInitialized(void)
 	return interpreter_lock != 0;
 }
 
+// 初始化多线程环境
 void
 PyEval_InitThreads(void)
 {
 	if (interpreter_lock)
 		return;
+    // 创建GIL
 	interpreter_lock = PyThread_allocate_lock();
+    // 尝试获取GIL
 	PyThread_acquire_lock(interpreter_lock, 1);
+    // 设置主线程
 	main_thread = PyThread_get_thread_ident();
 }
 

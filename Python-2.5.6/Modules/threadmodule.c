@@ -29,7 +29,7 @@ lock_dealloc(lockobject *self)
 	/* Unlock the lock so it's safe to free it */
 	PyThread_acquire_lock(self->lock_lock, 0);
 	PyThread_release_lock(self->lock_lock);
-	
+
 	PyThread_free_lock(self->lock_lock);
 	PyObject_Del(self);
 }
@@ -100,17 +100,17 @@ PyDoc_STRVAR(locked_doc,
 Return whether the lock is in the locked state.");
 
 static PyMethodDef lock_methods[] = {
-	{"acquire_lock", (PyCFunction)lock_PyThread_acquire_lock, 
+	{"acquire_lock", (PyCFunction)lock_PyThread_acquire_lock,
 	 METH_VARARGS, acquire_doc},
-	{"acquire",      (PyCFunction)lock_PyThread_acquire_lock, 
+	{"acquire",      (PyCFunction)lock_PyThread_acquire_lock,
 	 METH_VARARGS, acquire_doc},
-	{"release_lock", (PyCFunction)lock_PyThread_release_lock, 
+	{"release_lock", (PyCFunction)lock_PyThread_release_lock,
 	 METH_NOARGS, release_doc},
-	{"release",      (PyCFunction)lock_PyThread_release_lock, 
+	{"release",      (PyCFunction)lock_PyThread_release_lock,
 	 METH_NOARGS, release_doc},
-	{"locked_lock",  (PyCFunction)lock_locked_lock,  
+	{"locked_lock",  (PyCFunction)lock_locked_lock,
 	 METH_NOARGS, locked_doc},
-	{"locked",       (PyCFunction)lock_locked_lock,  
+	{"locked",       (PyCFunction)lock_locked_lock,
 	 METH_NOARGS, locked_doc},
 	{"__enter__",    (PyCFunction)lock_PyThread_acquire_lock,
 	 METH_VARARGS, acquire_doc},
@@ -192,7 +192,7 @@ local_new(PyTypeObject *type, PyObject *args, PyObject *kw)
 	self->kw = kw;
 	self->dict = NULL;	/* making sure */
 	self->key = PyString_FromFormat("thread.local.%p", self);
-	if (self->key == NULL) 
+	if (self->key == NULL)
 		goto err;
 
 	self->dict = PyDict_New();
@@ -243,7 +243,7 @@ local_dealloc(localobject *self)
 	    && tstate->interp) {
 		for(tstate = PyInterpreterState_ThreadHead(tstate->interp);
 		    tstate;
-		    tstate = PyThreadState_Next(tstate)) 
+		    tstate = PyThreadState_Next(tstate))
 			if (tstate->dict &&
 			    PyDict_GetItem(tstate->dict, self->key))
 				PyDict_DelItem(tstate->dict, self->key);
@@ -275,7 +275,7 @@ _ldict(localobject *self)
 		else {
 			int i = PyDict_SetItem(tdict, self->key, ldict);
 			Py_DECREF(ldict); /* now ldict is borrowed */
-			if (i < 0) 
+			if (i < 0)
 				return NULL;
 		}
 
@@ -284,7 +284,7 @@ _ldict(localobject *self)
 		self->dict = ldict; /* still borrowed */
 
 		if (self->ob_type->tp_init != PyBaseObject_Type.tp_init &&
-		    self->ob_type->tp_init((PyObject*)self, 
+		    self->ob_type->tp_init((PyObject*)self,
 					   self->args, self->kw) < 0) {
 			/* we need to get rid of ldict from thread so
 			   we create a new one the next time we do an attr
@@ -292,7 +292,7 @@ _ldict(localobject *self)
 			PyDict_DelItem(tdict, self->key);
 			return NULL;
 		}
-		
+
 	}
 
 	/* The call to tp_init above may have caused another thread to run.
@@ -310,9 +310,9 @@ static int
 local_setattro(localobject *self, PyObject *name, PyObject *v)
 {
 	PyObject *ldict;
-	
+
 	ldict = _ldict(self);
-	if (ldict == NULL) 
+	if (ldict == NULL)
 		return -1;
 
 	return PyObject_GenericSetAttr((PyObject *)self, name, v);
@@ -388,7 +388,7 @@ local_getattro(localobject *self, PyObject *name)
 	PyObject *ldict, *value;
 
 	ldict = _ldict(self);
-	if (ldict == NULL) 
+	if (ldict == NULL)
 		return NULL;
 
 	if (self->ob_type != &localtype)
@@ -397,7 +397,7 @@ local_getattro(localobject *self, PyObject *name)
 
 	/* Optimization: just look in dict ourselves */
 	value = PyDict_GetItem(ldict, name);
-	if (value == NULL) 
+	if (value == NULL)
 		/* Fall back on generic to get __class__ and __dict__ */
 		return PyObject_GenericGetAttr((PyObject *)self, name);
 
@@ -478,6 +478,7 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
 				"optional 3rd arg must be a dictionary");
 		return NULL;
 	}
+    // 创建bootstate结构
 	boot = PyMem_NEW(struct bootstate, 1);
 	if (boot == NULL)
 		return PyErr_NoMemory();
@@ -488,7 +489,9 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
 	Py_INCREF(func);
 	Py_INCREF(args);
 	Py_XINCREF(keyw);
+    // 初始化多线程环境
 	PyEval_InitThreads(); /* Start the interpreter's thread-awareness */
+    // 创建native线程
 	ident = PyThread_start_new_thread(t_bootstrap, (void*) boot);
 	if (ident == -1) {
 		PyErr_SetString(ThreadError, "can't start new thread");
@@ -648,20 +651,20 @@ static PyMethodDef thread_methods[] = {
 	{"start_new_thread",	(PyCFunction)thread_PyThread_start_new_thread,
 	                        METH_VARARGS,
 				start_new_doc},
-	{"start_new",		(PyCFunction)thread_PyThread_start_new_thread, 
+	{"start_new",		(PyCFunction)thread_PyThread_start_new_thread,
 	                        METH_VARARGS,
 				start_new_doc},
-	{"allocate_lock",	(PyCFunction)thread_PyThread_allocate_lock, 
+	{"allocate_lock",	(PyCFunction)thread_PyThread_allocate_lock,
 	 METH_NOARGS, allocate_doc},
-	{"allocate",		(PyCFunction)thread_PyThread_allocate_lock, 
+	{"allocate",		(PyCFunction)thread_PyThread_allocate_lock,
 	 METH_NOARGS, allocate_doc},
-	{"exit_thread",		(PyCFunction)thread_PyThread_exit_thread, 
+	{"exit_thread",		(PyCFunction)thread_PyThread_exit_thread,
 	 METH_NOARGS, exit_doc},
-	{"exit",		(PyCFunction)thread_PyThread_exit_thread, 
+	{"exit",		(PyCFunction)thread_PyThread_exit_thread,
 	 METH_NOARGS, exit_doc},
 	{"interrupt_main",	(PyCFunction)thread_PyThread_interrupt_main,
 	 METH_NOARGS, interrupt_doc},
-	{"get_ident",		(PyCFunction)thread_get_ident, 
+	{"get_ident",		(PyCFunction)thread_get_ident,
 	 METH_NOARGS, get_ident_doc},
 	{"stack_size",		(PyCFunction)thread_stack_size,
 				METH_VARARGS,
@@ -696,7 +699,7 @@ PyMODINIT_FUNC
 initthread(void)
 {
 	PyObject *m, *d;
-	
+
 	/* Initialize types: */
 	if (PyType_Ready(&localtype) < 0)
 		return;
