@@ -267,6 +267,7 @@ Py_InitializeEx(int install_sigs)
 
 	/* auto-thread-state API, if available */
 #ifdef WITH_THREAD
+    // 初始化GIL锁
 	_PyGILState_Init(interp, tstate);
 #endif /* WITH_THREAD */
 

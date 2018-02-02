@@ -46,7 +46,7 @@
 #endif
 
 /* Check if we're running on HP-UX and _SC_THREADS is defined. If so, then
-   enough of the Posix threads package is implimented to support python 
+   enough of the Posix threads package is implimented to support python
    threads.
 
    This is valid for HP-UX 11.23 running on an ia64 system. If needed, add
@@ -265,12 +265,15 @@ static struct key *
 find_key(int key, void *value)
 {
 	struct key *p, *prev_p;
+    // 获得当前线程id
 	long id = PyThread_get_thread_ident();
 
 	if (!keymutex)
 		return NULL;
+    // 锁住线程状态对象链表
 	PyThread_acquire_lock(keymutex, 1);
 	prev_p = NULL;
+    // 遍历线程状态对象链表,寻找key和id都匹配的元素
 	for (p = keyhead; p != NULL; p = p->next) {
 		if (p->id == id && p->key == key)
 			goto Done;
@@ -288,6 +291,7 @@ find_key(int key, void *value)
 		assert(p == NULL);
 		goto Done;
 	}
+    // 如果找不到,则新建一个key,加入keyhead列表
 	p = (struct key *)malloc(sizeof(struct key));
 	if (p != NULL) {
 		p->id = id;
@@ -404,7 +408,7 @@ PyThread_ReInitTLS(void)
 
 	if (!keymutex)
 		return;
-	
+
 	/* As with interpreter_lock in PyEval_ReInitThreads()
 	   we just create a new lock without freeing the old one */
 	keymutex = PyThread_allocate_lock();

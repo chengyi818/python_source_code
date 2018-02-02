@@ -251,8 +251,11 @@ PyEval_AcquireThread(PyThreadState *tstate)
 	if (tstate == NULL)
 		Py_FatalError("PyEval_AcquireThread: NULL new thread state");
 	/* Check someone has called PyEval_InitThreads() to create the lock */
+    // 检查GIL状态,确保GIL锁已经正确初始化
 	assert(interpreter_lock);
+    // 抢锁
 	PyThread_acquire_lock(interpreter_lock, 1);
+    // 将当前线程设为_PyThreadState_Current
 	if (PyThreadState_Swap(tstate) != NULL)
 		Py_FatalError(
 			"PyEval_AcquireThread: non-NULL old thread state");

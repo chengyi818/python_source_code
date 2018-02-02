@@ -421,9 +421,14 @@ t_bootstrap(void *boot_raw)
 	PyThreadState *tstate;
 	PyObject *res;
 
+    // 创建PyThreadState对象,
+    // 将对象加入interp->tstate_head管理链表
+    // 将对象加入线程对象管理全局链表keyhead
 	tstate = PyThreadState_New(boot->interp);
 
+    // 抢GIL锁
 	PyEval_AcquireThread(tstate);
+    // 执行真正的线程代码
 	res = PyEval_CallObjectWithKeywords(
 		boot->func, boot->args, boot->keyw);
 	if (res == NULL) {
