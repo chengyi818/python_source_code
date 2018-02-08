@@ -449,10 +449,13 @@ t_bootstrap(void *boot_raw)
 	}
 	else
 		Py_DECREF(res);
+    // 子线程的销毁
 	Py_DECREF(boot->func);
 	Py_DECREF(boot->args);
 	Py_XDECREF(boot->keyw);
 	PyMem_DEL(boot_raw);
+
+    // 清理工作
 	PyThreadState_Clear(tstate);
 	PyThreadState_DeleteCurrent();
 	PyThread_exit_thread();

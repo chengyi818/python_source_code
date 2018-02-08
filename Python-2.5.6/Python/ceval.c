@@ -821,7 +821,9 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		   async I/O handler); see Py_AddPendingCall() and
 		   Py_MakePendingCalls() above. */
 
+        // 每次重复大循环,_Py_Ticker都会减一,直到0.
 		if (--_Py_Ticker < 0) {
+            // 切换线程前,重置_Py_Ticker为100.
                         if (*next_instr == SETUP_FINALLY) {
                                 /* Make the last opcode before
                                    a try: finally: block uninterruptable. */
@@ -848,12 +850,14 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			if (interpreter_lock) {
 				/* Give another thread a chance */
 
+                // 释放GIL, 给别的线程调度机会
 				if (PyThreadState_Swap(NULL) != tstate)
 					Py_FatalError("ceval: tstate mix-up");
 				PyThread_release_lock(interpreter_lock);
 
 				/* Other threads may run now */
 
+                // 重新抢锁
 				PyThread_acquire_lock(interpreter_lock, 1);
 				if (PyThreadState_Swap(tstate) != NULL)
 					Py_FatalError("ceval: orphan tstate");
