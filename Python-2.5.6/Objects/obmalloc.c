@@ -753,6 +753,8 @@ PyObject_Malloc(size_t nbytes)
 			++pool->ref.count;
 			bp = pool->freeblock;
 			assert(bp != NULL);
+            // 如果当前freeblock中的值不为NULL,代表这个block是回收回来的,可以直接返回使用
+            // 同时将freeblock更新为当前freeblock中的值.即回收这个block前,freeblock的地址.
 			if ((pool->freeblock = *(block **)bp) != NULL) {
 				UNLOCK();
 				return (void *)bp;
@@ -760,8 +762,12 @@ PyObject_Malloc(size_t nbytes)
 			/*
 			 * Reached the end of the free list, try to extend it.
 			 */
+            // 回收的block全部用完,使用全新的block
 			if (pool->nextoffset <= pool->maxnextoffset) {
 				/* There is room for another block. */
+                // 有足够的block空间
+                // 取走当前freeblock
+                // 更新下一个freeblock
 				pool->freeblock = (block*)pool +
 						  pool->nextoffset;
 				pool->nextoffset += INDEX2SIZE(size);
@@ -770,6 +776,7 @@ PyObject_Malloc(size_t nbytes)
 				return (void *)bp;
 			}
 			/* Pool is full, unlink from used pools. */
+            // 最后一个block被分配出去,将pool从used pools双向链表中移除
 			next = pool->nextpool;
 			pool = pool->prevpool;
 			next->prevpool = pool;
@@ -860,11 +867,17 @@ PyObject_Malloc(size_t nbytes)
 			 * contain just the second block, and return the first
 			 * block.
 			 */
+            // 设置pool的size class index
 			pool->szidx = size;
+            // 将size class index转化为字节大小
 			size = INDEX2SIZE(size);
+            // 跳过pool_header部分,并对齐
 			bp = (block *)pool + POOL_OVERHEAD;
+            // 下一个freeblock偏移是: pool_header + size + size
 			pool->nextoffset = POOL_OVERHEAD + (size << 1);
+            // 最大block偏移是: pool大小 - size
 			pool->maxnextoffset = POOL_SIZE - size;
+            // 当前freeblock起点地址为: pool_header + size
 			pool->freeblock = bp + size;
 			*(block **)(pool->freeblock) = NULL;
 			UNLOCK();
