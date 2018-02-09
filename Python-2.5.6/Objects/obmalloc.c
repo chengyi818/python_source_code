@@ -523,6 +523,7 @@ new_arena(void)
 #endif
     // 判断是否需要扩充未使用的arena_object
 	if (unused_arena_objects == NULL) {
+        // 如果没有未使用的arena,将会申请新的
 		uint i;
 		uint numarenas;
 		size_t nbytes;
@@ -760,6 +761,7 @@ PyObject_Malloc(size_t nbytes)
 		size = (uint)(nbytes - 1) >> ALIGNMENT_SHIFT;
 		pool = usedpools[size + size];
 		if (pool != pool->nextpool) {
+            // usedpools中有可用的pool
 			/*
 			 * There is a used pool for this size class.
 			 * Pick up the head block of its free list.
@@ -799,6 +801,7 @@ PyObject_Malloc(size_t nbytes)
 			return (void *)bp;
 		}
 
+        // usedpools中没有有可用的pool
 		/* There isn't a pool of the right size class immediately
 		 * available:  use a free pool.
 		 */
