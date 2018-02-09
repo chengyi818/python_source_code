@@ -247,6 +247,7 @@ struct pool_header {
 typedef struct pool_header *poolp;
 
 /* Record keeping for arenas. */
+// 用于管理pool集合,最多管理64个pool
 struct arena_object {
 	/* The address of the arena, as returned by malloc.  Note that 0
 	 * will never be returned by a successful malloc, and is used
@@ -470,24 +471,29 @@ currently in use isn't on either list.
 */
 
 /* Array of objects used to track chunks of memory (arenas). */
+// arenas管理所有arena的集合,数组
 static struct arena_object* arenas = NULL;
 /* Number of slots currently allocated in the `arenas` vector. */
+// 当前arenas中管理的arena的个数
 static uint maxarenas = 0;
 
 /* The head of the singly-linked, NULL-terminated list of available
  * arena_objects.
  */
+// 未使用的arena的链表
 static struct arena_object* unused_arena_objects = NULL;
 
 /* The head of the doubly-linked, NULL-terminated at each end, list of
  * arena_objects associated with arenas that have pools available.
  */
+// 已使用的arena的链表
 static struct arena_object* usable_arenas = NULL;
 
 /* How many arena_objects do we initially allocate?
  * 16 = can allocate 16 arenas = 16 * ARENA_SIZE = 4MB before growing the
  * `arenas` vector.
  */
+// 初始化时需要申请的arena的个数
 #define INITIAL_ARENA_OBJECTS 16
 
 /* Number of arenas allocated that haven't been free()'d. */
@@ -515,6 +521,7 @@ new_arena(void)
 	if (Py_GETENV("PYTHONMALLOCSTATS"))
 		_PyObject_DebugMallocStats();
 #endif
+    // 判断是否需要扩充未使用的arena_object
 	if (unused_arena_objects == NULL) {
 		uint i;
 		uint numarenas;
@@ -523,12 +530,14 @@ new_arena(void)
 		/* Double the number of arena objects on each allocation.
 		 * Note that it's possible for `numarenas` to overflow.
 		 */
+        // 确定本次需要申请的arena个数
 		numarenas = maxarenas ? maxarenas << 1 : INITIAL_ARENA_OBJECTS;
 		if (numarenas <= maxarenas)
 			return NULL;	/* overflow */
 		if (numarenas > PY_SIZE_MAX / sizeof(*arenas))
 			return NULL;	/* overflow */
 		nbytes = numarenas * sizeof(*arenas);
+        // 重新申请arena内存
 		arenaobj = (struct arena_object *)realloc(arenas, nbytes);
 		if (arenaobj == NULL)
 			return NULL;
@@ -544,6 +553,7 @@ new_arena(void)
 		assert(unused_arena_objects == NULL);
 
 		/* Put the new arenas on the unused_arena_objects list. */
+        // 初始化新申请的arena_object
 		for (i = maxarenas; i < numarenas; ++i) {
 			arenas[i].address = 0;	/* mark as unassociated */
 			arenas[i].nextarena = i < numarenas - 1 ?
@@ -551,15 +561,18 @@ new_arena(void)
 		}
 
 		/* Update globals. */
+        // 更新未使用arena链表
 		unused_arena_objects = &arenas[maxarenas];
 		maxarenas = numarenas;
 	}
 
 	/* Take the next available arena object off the head of the list. */
 	assert(unused_arena_objects != NULL);
+    // 从未使用arena链表,pop一个arena
 	arenaobj = unused_arena_objects;
 	unused_arena_objects = arenaobj->nextarena;
 	assert(arenaobj->address == 0);
+    // 分配arena管理的内存
 	arenaobj->address = (uptr)malloc(ARENA_SIZE);
 	if (arenaobj->address == 0) {
 		/* The allocation failed: return NULL after putting the
@@ -576,6 +589,7 @@ new_arena(void)
 	if (narenas_currently_allocated > narenas_highwater)
 		narenas_highwater = narenas_currently_allocated;
 #endif
+    // 设置arena下的pool信息
 	arenaobj->freepools = NULL;
 	/* pool_address <- first pool-aligned address in the arena
 	   nfreepools <- number of whole pools that fit after alignment */
@@ -938,7 +952,9 @@ PyObject_Free(void *p)
 	if (p == NULL)	/* free(NULL) has no effect */
 		return;
 
+    // 根据p地址,获取pool地址
 	pool = POOL_ADDR(p);
+    // 判断p是否属于pool
 	if (Py_ADDRESS_IN_RANGE(p, pool)) {
 		/* We allocated this address. */
 		LOCK();
@@ -949,7 +965,9 @@ PyObject_Free(void *p)
 		 * list in any case).
 		 */
 		assert(pool->ref.count > 0);	/* else it was empty */
+        //将当前freeblock的地址保存到归还的block p中
 		*(block **)p = lastfree = pool->freeblock;
+        // 将新的freeblock指向归还的block p的位置
 		pool->freeblock = (block *)p;
 		if (lastfree) {
 			struct arena_object* ao;
