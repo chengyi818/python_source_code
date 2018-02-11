@@ -747,17 +747,21 @@ PyObject_Malloc(size_t nbytes)
 	 * things without checking for overflows or negatives.
 	 * As size_t is unsigned, checking for nbytes < 0 is not required.
 	 */
+    // 限制最大申请内存的大小
 	if (nbytes > PY_SSIZE_T_MAX)
 		return NULL;
 
 	/*
 	 * This implicitly redirects malloc(0).
 	 */
+    // 若申请内存大小 小于 SMALL_REQUEST_THRESHOLD,则使用小内存池功能
+    // 否则,转向malloc
 	if ((nbytes - 1) < SMALL_REQUEST_THRESHOLD) {
 		LOCK();
 		/*
 		 * Most frequent paths first
 		 */
+        // 根据申请的内存大小,获取对应的size class index
 		size = (uint)(nbytes - 1) >> ALIGNMENT_SHIFT;
 		pool = usedpools[size + size];
 		if (pool != pool->nextpool) {
@@ -805,8 +809,8 @@ PyObject_Malloc(size_t nbytes)
 		/* There isn't a pool of the right size class immediately
 		 * available:  use a free pool.
 		 */
-        // 没有可用arena
 		if (usable_arenas == NULL) {
+            // 没有可用arena
 			/* No arena has a free pool:  allocate a new arena. */
 #ifdef WITH_MEMORY_LIMITS
 			if (narenas_currently_allocated >= MAX_ARENAS) {
@@ -912,13 +916,18 @@ PyObject_Malloc(size_t nbytes)
 		/* Carve off a new pool. */
 		assert(usable_arenas->nfreepools > 0);
 		assert(usable_arenas->freepools == NULL);
+        // pool的地址为usable_arenas的pool_address
 		pool = (poolp)usable_arenas->pool_address;
 		assert((block*)pool <= (block*)usable_arenas->address +
 		                       ARENA_SIZE - POOL_SIZE);
+        // pool所在arena在整个arenas数组中的序号
 		pool->arenaindex = usable_arenas - arenas;
 		assert(&arenas[pool->arenaindex] == usable_arenas);
+        // pool->szidx更新为0xffff,表示从来没有管理过block
 		pool->szidx = DUMMY_SIZE_IDX;
+        // 更新usable_arenas的pool_address
 		usable_arenas->pool_address += POOL_SIZE;
+        // 更新usable_arenas中未使用pool数目
 		--usable_arenas->nfreepools;
 
 		if (usable_arenas->nfreepools == 0) {
@@ -976,11 +985,13 @@ PyObject_Free(void *p)
 		 * list in any case).
 		 */
 		assert(pool->ref.count > 0);	/* else it was empty */
-        //将当前freeblock的地址保存到归还的block p中
+        // 设置离散自由block链表
+        // 将当前freeblock的地址保存到归还的block p中
 		*(block **)p = lastfree = pool->freeblock;
         // 将新的freeblock指向归还的block p的位置
 		pool->freeblock = (block *)p;
 		if (lastfree) {
+            // 如果是最后一个释放的block
 			struct arena_object* ao;
 			uint nf;  /* ao->nfreepools */
 
@@ -997,6 +1008,7 @@ PyObject_Free(void *p)
 			 * previously freed pools will be allocated later
 			 * (being not referenced, they are perhaps paged out).
 			 */
+            // 将pool从usedpools链表中移除
 			next = pool->nextpool;
 			prev = pool->prevpool;
 			next->prevpool = prev;
@@ -1005,9 +1017,11 @@ PyObject_Free(void *p)
 			/* Link the pool to freepools.  This is a singly-linked
 			 * list, and pool->prevpool isn't used there.
 			 */
+            // 更新arena object中的freepools链表
 			ao = &arenas[pool->arenaindex];
 			pool->nextpool = ao->freepools;
 			ao->freepools = pool;
+            // nf表示当前arena object中所有未使用的pool数目
 			nf = ++ao->nfreepools;
 
 			/* All the rest is arena management.  We just freed
@@ -1023,6 +1037,7 @@ PyObject_Free(void *p)
 			 * 4. Else there's nothing more to do.
 			 */
 			if (nf == ao->ntotalpools) {
+                // Case 1: arena object下的所有pool全部free
 				/* Case 1.  First unlink ao from usable_arenas.
 				 */
 				assert(ao->prevarena == NULL ||
@@ -1033,6 +1048,7 @@ PyObject_Free(void *p)
 				/* Fix the pointer in the prevarena, or the
 				 * usable_arenas pointer.
 				 */
+                // 调整usable_arenas链表
 				if (ao->prevarena == NULL) {
 					usable_arenas = ao->nextarena;
 					assert(usable_arenas == NULL ||
@@ -1052,11 +1068,14 @@ PyObject_Free(void *p)
 				/* Record that this arena_object slot is
 				 * available to be reused.
 				 */
+                // 调整unused_arena_objects链表
 				ao->nextarena = unused_arena_objects;
 				unused_arena_objects = ao;
 
 				/* Free the entire arena. */
+                // 释放内存
 				free((void *)ao->address);
+                // 标记arena object为未使用
 				ao->address = 0;	/* mark unassociated */
 				--narenas_currently_allocated;
 
@@ -1069,6 +1088,8 @@ PyObject_Free(void *p)
 				 * ao->nfreepools was 0 before, ao isn't
 				 * currently on the usable_arenas list.
 				 */
+                // arena object有了一个freepool
+                // 将arena object链接到usable_arenas的表头
 				ao->nextarena = usable_arenas;
 				ao->prevarena = NULL;
 				if (usable_arenas)
@@ -1097,6 +1118,8 @@ PyObject_Free(void *p)
 			 * the arena to its right.
 			 * First unlink ao from usable_arenas.
 			 */
+            // arena object中有若干freepools
+            // 需要排序插入,保证empty少的优先被使用
 			if (ao->prevarena != NULL) {
 				/* ao isn't at the head of the list */
 				assert(ao->prevarena->nextarena == ao);
@@ -1147,6 +1170,7 @@ PyObject_Free(void *p)
 		 * targets optimal filling when several pools contain
 		 * blocks of the same size class.
 		 */
+        // pool从full状态转为used
 		--pool->ref.count;
 		assert(pool->ref.count > 0);	/* else the pool is empty */
 		size = pool->szidx;
@@ -1162,6 +1186,7 @@ PyObject_Free(void *p)
 	}
 
 	/* We didn't allocate this address. */
+    // 如果不是小内存池管理的内存,需要直接释放
 	free(p);
 }
 
