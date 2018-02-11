@@ -805,6 +805,7 @@ PyObject_Malloc(size_t nbytes)
 		/* There isn't a pool of the right size class immediately
 		 * available:  use a free pool.
 		 */
+        // 没有可用arena
 		if (usable_arenas == NULL) {
 			/* No arena has a free pool:  allocate a new arena. */
 #ifdef WITH_MEMORY_LIMITS
@@ -813,6 +814,7 @@ PyObject_Malloc(size_t nbytes)
 				goto redirect;
 			}
 #endif
+            // 申请新的arena,并放入usable_arenas
 			usable_arenas = new_arena();
 			if (usable_arenas == NULL) {
 				UNLOCK();
@@ -824,9 +826,11 @@ PyObject_Malloc(size_t nbytes)
 		assert(usable_arenas->address != 0);
 
 		/* Try to get a cached free pool. */
+        // 从usable_arenas中,抽取可用的pool
 		pool = usable_arenas->freepools;
 		if (pool != NULL) {
 			/* Unlink from cached pools. */
+            // 更新usable_arenas中,可用的pool的位置
 			usable_arenas->freepools = pool->nextpool;
 
 			/* This arena already had the smallest nfreepools
@@ -838,6 +842,7 @@ PyObject_Malloc(size_t nbytes)
 			 */
 			--usable_arenas->nfreepools;
 			if (usable_arenas->nfreepools == 0) {
+                // 若当前arena全部分配完了,从usable_arenas中摘除
 				/* Wholly allocated:  remove. */
 				assert(usable_arenas->freepools == NULL);
 				assert(usable_arenas->nextarena == NULL ||
@@ -863,6 +868,7 @@ PyObject_Malloc(size_t nbytes)
 			}
 		init_pool:
 			/* Frontlink to used pools. */
+            // 初始化pool
 			next = usedpools[size + size]; /* == prev */
 			pool->nextpool = next;
 			pool->prevpool = next;
@@ -870,6 +876,7 @@ PyObject_Malloc(size_t nbytes)
 			next->prevpool = pool;
 			pool->ref.count = 1;
 			if (pool->szidx == size) {
+                // pool_header被正确初始化了
 				/* Luckily, this pool last contained blocks
 				 * of the same size class, so its header
 				 * and free list are already initialized.
@@ -884,6 +891,7 @@ PyObject_Malloc(size_t nbytes)
 			 * contain just the second block, and return the first
 			 * block.
 			 */
+            // 初始化pool_header
             // 设置pool的size class index
 			pool->szidx = size;
             // 将size class index转化为字节大小
