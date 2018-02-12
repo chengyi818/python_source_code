@@ -770,6 +770,7 @@ collect(int generation)
 		generations[i].count = 0;
 
 	/* merge younger generations with one we are currently collecting */
+    // 将年轻代链入当前代
 	for (i = 0; i < generation; i++) {
 		gc_list_merge(GEN_HEAD(i), GEN_HEAD(generation));
 	}
@@ -786,7 +787,10 @@ collect(int generation)
 	 * refcount greater than 0 when all the references within the
 	 * set are taken into account).
 	 */
+    // 将对象计数复制到gc.gc_ref,有效引用计数
 	update_refs(young);
+    // 遍历链表,将环引用从引用中摘除
+    // 和具体的container类型相关
 	subtract_refs(young);
 
 	/* Leave everything reachable from outside young in young, and move
@@ -795,10 +799,13 @@ collect(int generation)
 	 * set instead.  But most things usually turn out to be reachable,
 	 * so it's more efficient to move the unreachable things.
 	 */
+    // 创建不可达列表
 	gc_list_init(&unreachable);
+    // 初步生成不可达列表
 	move_unreachable(young, &unreachable);
 
 	/* Move reachable objects to next generation. */
+    // 将可达列表移入高一代
 	if (young != old)
 		gc_list_merge(young, old);
 
@@ -892,6 +899,8 @@ collect_generations(void)
 	/* Find the oldest generation (higest numbered) where the count
 	 * exceeds the threshold.  Objects in the that generation and
 	 * generations younger than it will be collected. */
+    // 根据三代中,每代是否超过阀值,来决定是否内存回收
+    // 从最老的一代开始,清理超过阀值以及所有比它年轻的代
 	for (i = NUM_GENERATIONS-1; i >= 0; i--) {
 		if (generations[i].count > generations[i].threshold) {
 			n = collect(i);
@@ -1321,12 +1330,15 @@ _PyObject_GC_Malloc(size_t basicsize)
 	PyGC_Head *g;
 	if (basicsize > PY_SSIZE_T_MAX - sizeof(PyGC_Head))
 		return PyErr_NoMemory();
+    // 为对象本身以及GC申请内存
 	g = (PyGC_Head *)PyObject_MALLOC(
                 sizeof(PyGC_Head) + basicsize);
 	if (g == NULL)
 		return PyErr_NoMemory();
-	g->gc.gc_refs = GC_UNTRACKED;
+	g->gc.gc_refs = GC_UNTRACKED; // -2
+    // 增加一代generation计数
 	generations[0].count++; /* number of allocated GC objects */
+    // 根据阀值,决定是否触发内存回收
  	if (generations[0].count > generations[0].threshold &&
  	    enabled &&
  	    generations[0].threshold &&
