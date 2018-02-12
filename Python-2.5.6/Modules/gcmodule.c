@@ -799,13 +799,12 @@ collect(int generation)
 	 * set instead.  But most things usually turn out to be reachable,
 	 * so it's more efficient to move the unreachable things.
 	 */
-    // 创建不可达列表
+    // 创建临时不可达列表
 	gc_list_init(&unreachable);
     // 初步生成不可达列表
 	move_unreachable(young, &unreachable);
 
 	/* Move reachable objects to next generation. */
-    // 将可达列表移入高一代
 	if (young != old)
 		gc_list_merge(young, old);
 
@@ -816,6 +815,7 @@ collect(int generation)
 	 * can also call arbitrary Python code but they will be dealt with by
 	 * handle_weakrefs().
  	 */
+    // 创建最终不可达链表 __del__
 	gc_list_init(&finalizers);
 	move_finalizers(&unreachable, &finalizers);
 	/* finalizers contains the unreachable objects with a finalizer;
@@ -853,6 +853,7 @@ collect(int generation)
 	 * the reference cycles to be broken.  It may also cause some objects
 	 * in finalizers to be freed.
 	 */
+    // 实际清理内存
 	delete_garbage(&unreachable, old);
 
 	/* Collect statistics on uncollectable objects found and print
