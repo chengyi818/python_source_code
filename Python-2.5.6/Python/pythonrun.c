@@ -120,7 +120,7 @@ static int initialized = 0;
 /* API to access the initialized flag -- useful for esoteric use */
 
 int
-Py_IsInitialized(void)wneti
+Py_IsInitialized(void)
 {
 	return initialized;
 }
