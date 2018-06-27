@@ -599,6 +599,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 		assert(builtins != NULL && PyDict_Check(builtins));
 		Py_INCREF(builtins);
 	}
+
     if (code->co_zombieframe != NULL) {
         f = code->co_zombieframe;
         code->co_zombieframe = NULL;
@@ -610,6 +611,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
         nfrees = PyTuple_GET_SIZE(code->co_freevars);
         extras = code->co_stacksize + code->co_nlocals + ncells +
             nfrees;
+        // 创建空的frameobject
         if (free_list == NULL) {
             f = PyObject_GC_NewVar(PyFrameObject, &PyFrame_Type,
                                    extras);
@@ -633,6 +635,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
             _Py_NewReference((PyObject *)f);
         }
 
+        // 从PyCodeObject中提取信息到PyFrameObject中
         f->f_code = code;
         extras = code->co_nlocals + ncells + nfrees;
         f->f_valuestack = f->f_localsplus + extras;
@@ -650,11 +653,11 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
     Py_INCREF(globals);
     // 设置global名字空间, globals是入参
     f->f_globals = globals;
+
     /* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
     // 设置local名字空间
     if ((code->co_flags & (CO_NEWLOCALS | CO_OPTIMIZED)) ==
 		(CO_NEWLOCALS | CO_OPTIMIZED))
-        // 调用函数不需要创建local名字空间
 		; /* f_locals = NULL; will be set by PyFrame_FastToLocals() */
 	else if (code->co_flags & CO_NEWLOCALS) {
 		locals = PyDict_New();
@@ -666,11 +669,11 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 	}
 	else {
 		if (locals == NULL)
-			locals = globals; //一般情况下,locals和globals指向同一dict
-		Py_INCREF(locals);
-                f->f_locals = locals;
-	}
-	f->f_tstate = tstate;
+			locals = globals;
+        Py_INCREF(locals);
+        f->f_locals = locals;
+    }
+    f->f_tstate = tstate;
 
 	f->f_lasti = -1;
 	f->f_lineno = code->co_firstlineno;
