@@ -756,6 +756,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		}
 	}
 
+    // 将FrameObject信息载入到函数局部
 	co = f->f_code;
 	names = co->co_names;
 	consts = co->co_consts;
@@ -792,6 +793,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		goto on_error;
 	}
 
+    // 进入主循环
 	for (;;) {
 #ifdef WITH_TSC
 		if (inst1 == 0) {
@@ -822,6 +824,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		   Py_MakePendingCalls() above. */
 
         // 每次重复大循环,_Py_Ticker都会减一,直到0.
+        // 模拟CPU调度
 		if (--_Py_Ticker < 0) {
             // 切换线程前,重置_Py_Ticker为100.
                         if (*next_instr == SETUP_FINALLY) {
