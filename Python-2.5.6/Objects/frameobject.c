@@ -606,6 +606,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
         _Py_NewReference((PyObject *)f);
         assert(f->f_code == code);
     } else {
+        // 通常路径
         Py_ssize_t extras, ncells, nfrees;
         ncells = PyTuple_GET_SIZE(code->co_cellvars);
         nfrees = PyTuple_GET_SIZE(code->co_freevars);
@@ -665,9 +666,9 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 			Py_DECREF(f);
 			return NULL;
 		}
-                f->f_locals = locals;
-	}
-	else {
+        f->f_locals = locals;
+    }
+    else {
 		if (locals == NULL)
 			locals = globals;
         Py_INCREF(locals);
