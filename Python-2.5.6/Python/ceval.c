@@ -1744,9 +1744,9 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			break;
 
 		case BUILD_CLASS:
-			u = TOP();
-			v = SECOND();
-			w = THIRD();
+			u = TOP(); // 动态元信息f_locals
+			v = SECOND(); // 基类元组
+			w = THIRD(); // 类名
 			STACKADJ(-2);
 			x = build_class(u, v, w);
 			SET_TOP(x);
@@ -2025,6 +2025,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			break;
 
 		case LOAD_ATTR:
+            // name: co->co_names
 			w = GETITEM(names, oparg);
 			v = TOP();
 			x = PyObject_GetAttr(v, w);
@@ -2380,17 +2381,21 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			Py_DECREF(v);
 			/* XXX Maybe this should be a separate opcode? */
             // 处理默认参数
+            // 默认参数位于函数定义最右侧,必须连续定义
 			if (x != NULL && oparg > 0) {
+                // 创建元组
 				v = PyTuple_New(oparg);
 				if (v == NULL) {
 					Py_DECREF(x);
 					x = NULL;
 					break;
 				}
+                // 从栈中将默认参数值取出,并设置到元组中
 				while (--oparg >= 0) {
 					w = POP();
 					PyTuple_SET_ITEM(v, oparg, w);
 				}
+                // 将新建的元组设为函数默认参数元组
 				err = PyFunction_SetDefaults(x, v);
 				Py_DECREF(v);
 			}
@@ -2400,10 +2405,12 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		case MAKE_CLOSURE:
 		{
 			v = POP(); /* code object */
+            // 创建一个空Func对象
 			x = PyFunction_New(v, f->f_globals);
 			Py_DECREF(v);
 			if (x != NULL) {
-				v = POP();
+                // 处理闭包tuple
+				v = POP(); // closure tuple
 				if (PyFunction_SetClosure(x, v) != 0) {
 					/* Can't happen unless bytecode is corrupt. */
 					why = WHY_EXCEPTION;
@@ -2411,6 +2418,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 				Py_DECREF(v);
 			}
 			if (x != NULL && oparg > 0) {
+                // 处理默认参数
 				v = PyTuple_New(oparg);
 				if (v == NULL) {
 					Py_DECREF(x);
@@ -2893,7 +2901,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 			cellname = PyString_AS_STRING(
 				PyTuple_GET_ITEM(co->co_cellvars, i));
 			found = 0;
-            // 2.1.2.2 cellname匹配函数局部变量名,包括函数入参和局部变量
+            // 2.1.2.2 cellname匹配函数入参
 			for (j = 0; j < nargs; j++) {
 				argname = PyString_AS_STRING(
 					PyTuple_GET_ITEM(co->co_varnames, j));
@@ -3661,7 +3669,7 @@ call_function(PyObject ***pp_stack, int oparg
 	/* Always dispatch PyCFunction first, because these are
 	   presumed to be the most frequent callable object.
 	*/
-    // 优先考虑调用C实现的函数
+    // 1. 优先考虑调用C实现的函数
 	if (PyCFunction_Check(func) && nk == 0) {
 		int flags = PyCFunction_GET_FLAGS(func);
 		PyThreadState *tstate = PyThreadState_GET();
@@ -3692,7 +3700,7 @@ call_function(PyObject ***pp_stack, int oparg
 			Py_XDECREF(callargs);
 		}
 	} else {
-        // 检查是否是方法对象
+        // 2.1 检查是否是方法对象
         // 从方法对象中抽出实例对象和func对象.
         // 将当前栈中的func对象替换为实例对象self,充当第一个入参的参数.并且位置参数+1;
 		if (PyMethod_Check(func) && PyMethod_GET_SELF(func) != NULL) {
@@ -3710,7 +3718,7 @@ call_function(PyObject ***pp_stack, int oparg
 		} else
 			Py_INCREF(func);
 		READ_TIMESTAMP(*pintr0);
-        // 检查是否是函数对象
+        // 2.2检查是否是函数对象
 		if (PyFunction_Check(func)) {
             // chengyi hack
             /*printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);*/
@@ -3721,6 +3729,7 @@ call_function(PyObject ***pp_stack, int oparg
 			x = fast_function(func, pp_stack, n, na, nk);
         }
 		else
+            // 2.3 其他调用
 			x = do_call(func, pp_stack, na, nk);
 		READ_TIMESTAMP(*pintr1);
 		Py_DECREF(func);
@@ -3730,7 +3739,7 @@ call_function(PyObject ***pp_stack, int oparg
            the arguments in case they weren't consumed already
            (fast_function() and err_args() leave them on the stack).
 	 */
-    // 清理为调用函数而准备的栈内容
+    // 3. 清理为调用函数而准备的栈内容
 	while ((*pp_stack) > pfunc) {
 		w = EXT_POP(*pp_stack);
 		Py_DECREF(w);
@@ -4215,14 +4224,15 @@ build_class(PyObject *methods, PyObject *bases, PyObject *name)
 {
 	PyObject *metaclass = NULL, *result, *base;
 
-    // 决定metaclass
+    // 1. 决定metaclass
 	if (PyDict_Check(methods))
-        // 尝试从属性列表中获取metaclass
+        // 1.1 尝试从属性列表中获取metaclass
+        // 在python2.x中,这是开发者自定义metaclass的方法
 		metaclass = PyDict_GetItemString(methods, "__metaclass__");
 	if (metaclass != NULL)
 		Py_INCREF(metaclass);
 	else if (PyTuple_Check(bases) && PyTuple_GET_SIZE(bases) > 0) {
-        //尝试使用第一个基类的metaclass
+        // 1.2 尝试使用第一个基类的metaclass
 		base = PyTuple_GET_ITEM(bases, 0);
 		metaclass = PyObject_GetAttrString(base, "__class__");
 		if (metaclass == NULL) {
@@ -4232,7 +4242,8 @@ build_class(PyObject *methods, PyObject *bases, PyObject *name)
 		}
 	}
 	else {
-        // 或许是classic class经典类
+        // 1.3 或许是classic class经典类
+        // 基本不用考虑
 		PyObject *g = PyEval_GetGlobals();
 		if (g != NULL && PyDict_Check(g))
 			metaclass = PyDict_GetItemString(g, "__metaclass__");
@@ -4241,10 +4252,11 @@ build_class(PyObject *methods, PyObject *bases, PyObject *name)
 		Py_INCREF(metaclass);
 	}
 
-    // 创建class对象
+    // 2. 创建class对象
 	result = PyObject_CallFunctionObjArgs(metaclass, name, bases, methods, NULL);
 	Py_DECREF(metaclass);
 	if (result == NULL && PyErr_ExceptionMatches(PyExc_TypeError)) {
+        // 2.1 错误检查和打印
 		/* A type error here likely means that the user passed
 		   in a base that was not a class (such the random module
 		   instead of the random.random type).  Help them out with

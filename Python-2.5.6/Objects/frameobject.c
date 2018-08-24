@@ -659,8 +659,10 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
     // 设置local名字空间
     if ((code->co_flags & (CO_NEWLOCALS | CO_OPTIMIZED)) ==
 		(CO_NEWLOCALS | CO_OPTIMIZED))
+        // 仅当调动locals()函数时,才会填充f_locals字典
 		; /* f_locals = NULL; will be set by PyFrame_FastToLocals() */
 	else if (code->co_flags & CO_NEWLOCALS) {
+        // 创建class对象时,会新建new local字典
 		locals = PyDict_New();
 		if (locals == NULL) {
 			Py_DECREF(f);

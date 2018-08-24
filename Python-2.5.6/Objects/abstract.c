@@ -935,9 +935,9 @@ int_from_string(const char *s, Py_ssize_t len)
 	return x;
 }
 
-/* Return a Python Int or Long from the object item 
+/* Return a Python Int or Long from the object item
    Raise TypeError if the result is not an int-or-long
-   or if the object cannot be interpreted as an index. 
+   or if the object cannot be interpreted as an index.
 */
 PyObject *
 PyNumber_Index(PyObject *item)
@@ -986,19 +986,19 @@ PyNumber_AsSsize_t(PyObject *item, PyObject *err)
 		goto finish;
 
 	/* Error handling code -- only manage OverflowError differently */
-	if (!PyErr_GivenExceptionMatches(runerr, PyExc_OverflowError)) 
+	if (!PyErr_GivenExceptionMatches(runerr, PyExc_OverflowError))
 		goto finish;
 
 	PyErr_Clear();
-	/* If no error-handling desired then the default clipping 
+	/* If no error-handling desired then the default clipping
 	   is sufficient.
 	 */
 	if (!err) {
 		assert(PyLong_Check(value));
-		/* Whether or not it is less than or equal to 
+		/* Whether or not it is less than or equal to
 		   zero is determined by the sign of ob_size
 		*/
-		if (_PyLong_Sign(value) < 0) 
+		if (_PyLong_Sign(value) < 0)
 			result = PY_SSIZE_T_MIN;
 		else
 			result = PY_SSIZE_T_MAX;
@@ -1006,10 +1006,10 @@ PyNumber_AsSsize_t(PyObject *item, PyObject *err)
 	else {
 		/* Otherwise replace the error with caller's error object. */
 		PyErr_Format(err,
-			     "cannot fit '%.200s' into an index-sized integer", 
-			     item->ob_type->tp_name); 
+			     "cannot fit '%.200s' into an index-sized integer",
+			     item->ob_type->tp_name);
 	}
-	
+
  finish:
 	Py_DECREF(value);
 	return result;
@@ -1531,7 +1531,7 @@ PySequence_Tuple(PyObject *v)
 		if (j >= n) {
 			Py_ssize_t oldn = n;
 			/* The over-allocation strategy can grow a bit faster
-			   than for lists because unlike lists the 
+			   than for lists because unlike lists the
 			   over-allocation isn't permanent -- we reclaim
 			   the excess before the end of this routine.
 			   So, grow by ten and then add 25%.
@@ -1542,7 +1542,7 @@ PySequence_Tuple(PyObject *v)
 				/* Check for overflow */
 				PyErr_NoMemory();
 				Py_DECREF(item);
-				goto Fail; 
+				goto Fail;
 			}
 			if (_PyTuple_Resize(&result, n) != 0) {
 				Py_DECREF(item);
@@ -1749,7 +1749,7 @@ PyMapping_Check(PyObject *o)
 
 	return  o && o->ob_type->tp_as_mapping &&
 		o->ob_type->tp_as_mapping->mp_subscript &&
-		!(o->ob_type->tp_as_sequence && 
+		!(o->ob_type->tp_as_sequence &&
 		  o->ob_type->tp_as_sequence->sq_slice);
 }
 
@@ -1855,19 +1855,20 @@ PyObject_CallObject(PyObject *o, PyObject *a)
 PyObject *
 PyObject_Call(PyObject *func, PyObject *arg, PyObject *kw)
 {
-        ternaryfunc call;
+    ternaryfunc call;
 
-	if ((call = func->ob_type->tp_call) != NULL) {
-		PyObject *result = (*call)(func, arg, kw);
-		if (result == NULL && !PyErr_Occurred())
-			PyErr_SetString(
-				PyExc_SystemError,
-				"NULL result without error in PyObject_Call");
-		return result;
-	}
-	PyErr_Format(PyExc_TypeError, "'%.200s' object is not callable",
-		     func->ob_type->tp_name);
-	return NULL;
+    if ((call = func->ob_type->tp_call) != NULL) {
+        // 调用func的类型的tp_call,也就是__call__
+        PyObject *result = (*call)(func, arg, kw);
+        if (result == NULL && !PyErr_Occurred())
+            PyErr_SetString(
+                PyExc_SystemError,
+                "NULL result without error in PyObject_Call");
+        return result;
+    }
+    PyErr_Format(PyExc_TypeError, "'%.200s' object is not callable",
+                 func->ob_type->tp_name);
+    return NULL;
 }
 
 static PyObject*
@@ -1954,7 +1955,7 @@ PyObject_CallMethod(PyObject *o, char *name, char *format, ...)
 	}
 
 	if (!PyCallable_Check(func)) {
-		type_error("attribute of type '%.200s' is not callable", func); 
+		type_error("attribute of type '%.200s' is not callable", func);
 		goto exit;
 	}
 
@@ -1993,7 +1994,7 @@ _PyObject_CallMethod_SizeT(PyObject *o, char *name, char *format, ...)
 	}
 
 	if (!PyCallable_Check(func)) {
-		type_error("attribute of type '%.200s' is not callable", func); 
+		type_error("attribute of type '%.200s' is not callable", func);
 		goto exit;
 	}
 
@@ -2084,6 +2085,7 @@ PyObject_CallFunctionObjArgs(PyObject *callable, ...)
 
 	/* count the args */
 	va_start(vargs, callable);
+    // 将除callable外,所有参数打包为一个元组
 	args = objargs_mktuple(vargs);
 	va_end(vargs);
 	if (args == NULL)

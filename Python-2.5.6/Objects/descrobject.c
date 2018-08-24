@@ -31,39 +31,41 @@ descr_repr(PyDescrObject *descr, char *format)
 static PyObject *
 method_repr(PyMethodDescrObject *descr)
 {
-	return descr_repr((PyDescrObject *)descr, 
+	return descr_repr((PyDescrObject *)descr,
 			  "<method '%s' of '%s' objects>");
 }
 
 static PyObject *
 member_repr(PyMemberDescrObject *descr)
 {
-	return descr_repr((PyDescrObject *)descr, 
+	return descr_repr((PyDescrObject *)descr,
 			  "<member '%s' of '%s' objects>");
 }
 
 static PyObject *
 getset_repr(PyGetSetDescrObject *descr)
 {
-	return descr_repr((PyDescrObject *)descr, 
+	return descr_repr((PyDescrObject *)descr,
 			  "<attribute '%s' of '%s' objects>");
 }
 
 static PyObject *
 wrapperdescr_repr(PyWrapperDescrObject *descr)
 {
-	return descr_repr((PyDescrObject *)descr, 
+	return descr_repr((PyDescrObject *)descr,
 			  "<slot wrapper '%s' of '%s' objects>");
 }
 
 static int
 descr_check(PyDescrObject *descr, PyObject *obj, PyObject **pres)
 {
+    // 1. 若obj为空,即类对象的属性访问descr,则直接返回descr
 	if (obj == NULL) {
 		Py_INCREF(descr);
 		*pres = (PyObject *)descr;
 		return 1;
 	}
+    // 2. 检查obj的类型是否符合descr修饰的类型
 	if (!PyObject_TypeCheck(obj, descr->d_type)) {
 		PyErr_Format(PyExc_TypeError,
 			     "descriptor '%s' for '%s' objects "
@@ -156,8 +158,10 @@ wrapperdescr_get(PyWrapperDescrObject *descr, PyObject *obj, PyObject *type)
 {
 	PyObject *res;
 
+    // 若obj为空,则直接返回descr
 	if (descr_check((PyDescrObject *)descr, obj, &res))
 		return res;
+
 	return PyWrapper_New((PyObject *)descr, obj);
 }
 
@@ -271,6 +275,7 @@ wrapperdescr_call(PyWrapperDescrObject *descr, PyObject *args, PyObject *kwds)
 	PyObject *self, *func, *result;
 
 	/* Make sure that the first argument is acceptable as 'self' */
+    // 1. 解析参数
 	assert(PyTuple_Check(args));
 	argc = PyTuple_GET_SIZE(args);
 	if (argc < 1) {
@@ -282,6 +287,8 @@ wrapperdescr_call(PyWrapperDescrObject *descr, PyObject *args, PyObject *kwds)
 		return NULL;
 	}
 	self = PyTuple_GET_ITEM(args, 0);
+
+    // 2. 检查入参的第一个参数,必须是descr->d_type的实例
 	if (!PyObject_IsInstance(self, (PyObject *)(descr->d_type))) {
 		PyErr_Format(PyExc_TypeError,
 			     "descriptor '%.200s' "
@@ -293,6 +300,8 @@ wrapperdescr_call(PyWrapperDescrObject *descr, PyObject *args, PyObject *kwds)
 		return NULL;
 	}
 
+    // wrapprtype Line: 1011
+    // 3. 创建wrapperobject
 	func = PyWrapper_New((PyObject *)descr, self);
 	if (func == NULL)
 		return NULL;
@@ -301,6 +310,8 @@ wrapperdescr_call(PyWrapperDescrObject *descr, PyObject *args, PyObject *kwds)
 		Py_DECREF(func);
 		return NULL;
 	}
+    //4.  __call__指向wrapperType的tp_call
+    // wrapper_call Line: 985
 	result = PyEval_CallObjectWithKeywords(func, args, kwds);
 	Py_DECREF(args);
 	Py_DECREF(func);

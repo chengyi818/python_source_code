@@ -1104,11 +1104,15 @@ PyObject_SetAttrString(PyObject *v, const char *name, PyObject *w)
 	return res;
 }
 
+/*
+ * 在对象v中查找属性name
+ */
 PyObject *
 PyObject_GetAttr(PyObject *v, PyObject *name)
 {
 	PyTypeObject *tp = v->ob_type;
 
+    // 1. 检查name必须为字符串对象
 	if (!PyString_Check(name)) {
 #ifdef Py_USING_UNICODE
 		/* The Unicode to string conversion is done here because the
@@ -1128,10 +1132,15 @@ PyObject_GetAttr(PyObject *v, PyObject *name)
 			return NULL;
 		}
 	}
+
+    // 2. 对象v的类型tp的tp_getattro方法不为空
 	if (tp->tp_getattro != NULL)
 		return (*tp->tp_getattro)(v, name);
+
+    // 3. 对象v的类型tp的tp_getattr方法不为空
 	if (tp->tp_getattr != NULL)
 		return (*tp->tp_getattr)(v, PyString_AS_STRING(name));
+
 	PyErr_Format(PyExc_AttributeError,
 		     "'%.50s' object has no attribute '%.400s'",
 		     tp->tp_name, PyString_AS_STRING(name));
@@ -1244,7 +1253,7 @@ PyObject_SelfIter(PyObject *obj)
 }
 
 /* Generic GetAttr functions - put these in your tp_[gs]etattro slot */
-
+// 用于从实例对象obj中,查找属性name
 PyObject *
 PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 {
@@ -1255,6 +1264,7 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 	Py_ssize_t dictoffset;
 	PyObject **dictptr;
 
+    // 1. 确保name是一个字符串对象
 	if (!PyString_Check(name)){
 #ifdef Py_USING_UNICODE
 		/* The Unicode to string conversion is done here because the
@@ -1277,13 +1287,14 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 	else
 		Py_INCREF(name);
 
+    // 2. 确保被查找对象obj的类型tp已经完成从经典类到新式类的转化
 	if (tp->tp_dict == NULL) {
 		if (PyType_Ready(tp) < 0)
 			goto done;
 	}
 
 	/* Inline _PyType_Lookup */
-    // 在class对象的mro列表中,寻找descriptor
+    // 3. 在被查找对象obj的类型tp的mro列表中,寻找descriptor
 	{
 		Py_ssize_t i, n;
 		PyObject *mro, *base, *dict;
@@ -1296,8 +1307,10 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 		for (i = 0; i < n; i++) {
 			base = PyTuple_GET_ITEM(mro, i);
 			if (PyClass_Check(base))
+                // 3.1 经典类
 				dict = ((PyClassObject *)base)->cl_dict;
 			else {
+                // 3.2 新式类
 				assert(PyType_Check(base));
 				dict = ((PyTypeObject *)base)->tp_dict;
 			}
@@ -1310,64 +1323,70 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 
 	Py_XINCREF(descr);
 
-    // 通过descriptor访问属性
+    // 4. 通过data descriptor访问属性
 	f = NULL;
 	if (descr != NULL &&
 	    PyType_HasFeature(descr->ob_type, Py_TPFLAGS_HAVE_CLASS)) {
 		f = descr->ob_type->tp_descr_get;
+        // 4.1 如果descr是一个data descriptor
 		if (f != NULL && PyDescr_IsData(descr)) {
 			res = f(descr, obj, (PyObject *)obj->ob_type);
 			Py_DECREF(descr);
 			goto done;
 		}
 	}
-    // 通过descriptor访问属性,完毕
 
 	/* Inline _PyObject_GetDictPtr */
-    // 通过descriptor访问属性失败,则在instance对象的__dict__中查找
+    // 5. 通过data descriptor访问属性失败,则在当前实例对象obj的__dict__中查找
+    // dictoffset表示当前实例起始地址到__dict__的偏移
 	dictoffset = tp->tp_dictoffset;
-	if (dictoffset != 0) {
-		PyObject *dict;
-		if (dictoffset < 0) {
-			Py_ssize_t tsize;
-			size_t size;
+    if (dictoffset != 0) {
+        PyObject *dict;
+        // 5.1 处理变长对象
+        if (dictoffset < 0) {
+            Py_ssize_t tsize;
+            size_t size;
 
-			tsize = ((PyVarObject *)obj)->ob_size;
-			if (tsize < 0)
-				tsize = -tsize;
-			size = _PyObject_VAR_SIZE(tp, tsize);
+            tsize = ((PyVarObject *)obj)->ob_size;
+            if (tsize < 0)
+                tsize = -tsize;
+            size = _PyObject_VAR_SIZE(tp, tsize);
 
-			dictoffset += (long)size;
-			assert(dictoffset > 0);
-			assert(dictoffset % SIZEOF_VOID_P == 0);
-		}
-		dictptr = (PyObject **) ((char *)obj + dictoffset);
-		dict = *dictptr;
-		if (dict != NULL) {
-			Py_INCREF(dict);
-			res = PyDict_GetItem(dict, name);
-			if (res != NULL) {
-				Py_INCREF(res);
-				Py_XDECREF(descr);
-                                Py_DECREF(dict);
-				goto done;
-			}
-                        Py_DECREF(dict);
-		}
-	}
+            dictoffset += (long)size;
+            assert(dictoffset > 0);
+            assert(dictoffset % SIZEOF_VOID_P == 0);
+        }
+        dictptr = (PyObject **) ((char *)obj + dictoffset);
+        dict = *dictptr;
+        if (dict != NULL) {
+            Py_INCREF(dict);
+            // 5.2 从obj->dict中,查找name
+            res = PyDict_GetItem(dict, name);
+            if (res != NULL) {
+                Py_INCREF(res);
+                Py_XDECREF(descr);
+                Py_DECREF(dict);
+                goto done;
+            }
+            Py_DECREF(dict);
+        }
+    }
 
+    // 6. 通过non data descriptor访问属性
 	if (f != NULL) {
 		res = f(descr, obj, (PyObject *)obj->ob_type);
 		Py_DECREF(descr);
 		goto done;
 	}
 
+    // 7. 返回在obj的类型tp中找到的普通属性
 	if (descr != NULL) {
 		res = descr;
 		/* descr was already increfed above */
 		goto done;
 	}
 
+    // 8. 没有在实例对象obj中找到属性
 	PyErr_Format(PyExc_AttributeError,
 		     "'%.50s' object has no attribute '%.400s'",
 		     tp->tp_name, PyString_AS_STRING(name));
@@ -1376,6 +1395,7 @@ PyObject_GenericGetAttr(PyObject *obj, PyObject *name)
 	return res;
 }
 
+// 在对象obj的__dict__中设置{name: value}
 int
 PyObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value)
 {
@@ -1385,6 +1405,7 @@ PyObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value)
 	PyObject **dictptr;
 	int res = -1;
 
+    // 1. 检查name必须为字符串对象
 	if (!PyString_Check(name)){
 #ifdef Py_USING_UNICODE
 		/* The Unicode to string conversion is done here because the
@@ -1407,22 +1428,29 @@ PyObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value)
 	else
 		Py_INCREF(name);
 
+    // 2. 确保被查找对象obj的类型tp已经完成从经典类到新式类的转化
 	if (tp->tp_dict == NULL) {
 		if (PyType_Ready(tp) < 0)
 			goto done;
 	}
 
+    // 重点1
+    // 3. 在tp及其父类中,查找name对应的descriptor
 	descr = _PyType_Lookup(tp, name);
 	f = NULL;
 	if (descr != NULL &&
 	    PyType_HasFeature(descr->ob_type, Py_TPFLAGS_HAVE_CLASS)) {
 		f = descr->ob_type->tp_descr_set;
+        // 3.1 如果是data descriptor,则调用descr完成设置
 		if (f != NULL && PyDescr_IsData(descr)) {
 			res = f(descr, obj, value);
 			goto done;
 		}
 	}
 
+    // 重点2
+    // 4. 在obj.__dict__中,完成设置{name: value}
+    // 直接在obj.__dict__中加入obj.__dict__[name] = value
 	dictptr = _PyObject_GetDictPtr(obj);
 	if (dictptr != NULL) {
 		PyObject *dict = *dictptr;
@@ -1445,11 +1473,15 @@ PyObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value)
 		}
 	}
 
+    // 5. non data descriptor设置
 	if (f != NULL) {
+        // 貌似走不到这里?
 		res = f(descr, obj, value);
 		goto done;
 	}
 
+    // 6. 没有找到descriptor
+    // obj对象没有字典,且没有descriptor
 	if (descr == NULL) {
 		PyErr_Format(PyExc_AttributeError,
 			     "'%.100s' object has no attribute '%.200s'",
