@@ -568,7 +568,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
 		return NULL;
 	}
 #endif
-    // 设置builtin名字空间
+    // 1. 设置builtin名字空间
 	if (back == NULL || back->f_globals != globals) {
 		builtins = PyDict_GetItem(globals, builtin_object);
 		if (builtins) {
@@ -607,12 +607,12 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
         assert(f->f_code == code);
     } else {
         // 通常路径
+        // 2. 创建frameobject
         Py_ssize_t extras, ncells, nfrees;
         ncells = PyTuple_GET_SIZE(code->co_cellvars);
         nfrees = PyTuple_GET_SIZE(code->co_freevars);
         extras = code->co_stacksize + code->co_nlocals + ncells +
             nfrees;
-        // 创建空的frameobject
         if (free_list == NULL) {
             f = PyObject_GC_NewVar(PyFrameObject, &PyFrame_Type,
                                    extras);
@@ -636,7 +636,7 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
             _Py_NewReference((PyObject *)f);
         }
 
-        // 从PyCodeObject中提取信息到PyFrameObject中
+        // 3. 从PyCodeObject中提取信息到PyFrameObject中
         f->f_code = code;
         extras = code->co_nlocals + ncells + nfrees;
         f->f_valuestack = f->f_localsplus + extras;
@@ -646,23 +646,26 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
         f->f_trace = NULL;
         f->f_exc_type = f->f_exc_value = f->f_exc_traceback = NULL;
     }
+
+    // 4. 设置frameobject
     f->f_stacktop = f->f_valuestack;
     f->f_builtins = builtins;
     Py_XINCREF(back);
     f->f_back = back;
     Py_INCREF(code);
     Py_INCREF(globals);
-    // 设置global名字空间, globals是入参
+    // 4.1 设置global名字空间, globals是入参
     f->f_globals = globals;
 
     /* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
-    // 设置local名字空间
+    // 4.2 设置local名字空间
     if ((code->co_flags & (CO_NEWLOCALS | CO_OPTIMIZED)) ==
 		(CO_NEWLOCALS | CO_OPTIMIZED))
+        // 4.2.1 CO_OPTIMIZED: 函数调用时,不需要新建local字典
         // 仅当调动locals()函数时,才会填充f_locals字典
 		; /* f_locals = NULL; will be set by PyFrame_FastToLocals() */
 	else if (code->co_flags & CO_NEWLOCALS) {
-        // 创建class对象时,会新建new local字典
+        // 4.2.2 创建class对象时,会新建new local字典
 		locals = PyDict_New();
 		if (locals == NULL) {
 			Py_DECREF(f);
@@ -671,9 +674,11 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
         f->f_locals = locals;
     }
     else {
+        // 4.2.3 不需要新建local字典且locals为空时,local指向global
 		if (locals == NULL)
 			locals = globals;
         Py_INCREF(locals);
+        // 4.2.4 设置f->f_locals为locals
         f->f_locals = locals;
     }
     f->f_tstate = tstate;

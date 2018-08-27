@@ -245,6 +245,7 @@ Py_Main(int argc, char **argv)
 
 	PySys_ResetWarnOptions();
 
+    // 1. 解析输入option start
 	while ((c = _PyOS_GetOpt(argc, argv, PROGRAM_OPTS)) != EOF) {
 		if (c == 'c') {
 			/* -c is the last option; following arguments
@@ -368,7 +369,9 @@ Py_Main(int argc, char **argv)
 
 		}
 	}
+    // 1. 解析输入option end
 
+    // 2. 处理输入option start
 	if (help)
 		return usage(0, argv[0]);
 
@@ -482,6 +485,9 @@ Py_Main(int argc, char **argv)
 #else
 	Py_SetProgramName(argv[0]);
 #endif
+
+    // 3. Important 1
+    // 虚拟机初始化
 	Py_Initialize();
 
 	if (Py_VerboseFlag ||
@@ -517,10 +523,14 @@ Py_Main(int argc, char **argv)
 			Py_DECREF(v);
 	}
 
+    // 4. Important 2
+    // 执行命令, 模块, 文件
 	if (command) {
+        // 4.1 命令
 		sts = PyRun_SimpleStringFlags(command, &cf) != 0;
 		free(command);
 	} else if (module) {
+        // 4.2 模块
 		sts = RunModule(module);
 		free(module);
 	}
@@ -529,12 +539,14 @@ Py_Main(int argc, char **argv)
 			RunStartupFile(&cf);
 		}
 		/* XXX */
+        // 4.3 文件, 通常路径?
 		sts = PyRun_AnyFileExFlags(
 			fp,
 			filename == NULL ? "<stdin>" : filename,
 			filename != NULL, &cf) != 0;
 	}
 
+    // 5. 进行REPL调试
 	/* Check this environment variable at the end, to give programs the
 	 * opportunity to set it from Python.
 	 */
@@ -549,9 +561,12 @@ Py_Main(int argc, char **argv)
 		/* XXX */
 		sts = PyRun_AnyFileFlags(stdin, "<stdin>", &cf) != 0;
 
+    // 6. 等待多线程结束?
 	WaitForThreadShutdown();
 
+    // 7. 虚拟机清理
 	Py_Finalize();
+
 #ifdef RISCOS
 	if (Py_RISCOSWimpFlag)
                 fprintf(stderr, "\x0cq\x0c"); /* make frontend quit */
@@ -590,4 +605,3 @@ Py_GetArgcArgv(int *argc, char ***argv)
 #ifdef __cplusplus
 }
 #endif
-

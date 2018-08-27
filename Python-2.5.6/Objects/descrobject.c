@@ -300,7 +300,7 @@ wrapperdescr_call(PyWrapperDescrObject *descr, PyObject *args, PyObject *kwds)
 		return NULL;
 	}
 
-    // wrapprtype Line: 1011
+    // wrapprtype
     // 3. 创建wrapperobject
 	func = PyWrapper_New((PyObject *)descr, self);
 	if (func == NULL)
@@ -311,7 +311,8 @@ wrapperdescr_call(PyWrapperDescrObject *descr, PyObject *args, PyObject *kwds)
 		return NULL;
 	}
     //4.  __call__指向wrapperType的tp_call
-    // wrapper_call Line: 985
+    // 实际调用wrapper_call(func, args, NULL)
+    // 再实际调用: descr->d_base->wrapper(self, args, descr->d_wrapped);
 	result = PyEval_CallObjectWithKeywords(func, args, kwds);
 	Py_DECREF(args);
 	Py_DECREF(func);

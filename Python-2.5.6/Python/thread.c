@@ -265,15 +265,15 @@ static struct key *
 find_key(int key, void *value)
 {
 	struct key *p, *prev_p;
-    // 获得当前线程id
+    // 1. 获得当前线程id
 	long id = PyThread_get_thread_ident();
 
 	if (!keymutex)
 		return NULL;
-    // 锁住线程状态对象链表
+    // 2. 锁住线程状态对象链表
 	PyThread_acquire_lock(keymutex, 1);
 	prev_p = NULL;
-    // 遍历线程状态对象链表,寻找key和id都匹配的元素
+    // 3. 遍历线程状态对象链表,寻找key和id都匹配的元素
 	for (p = keyhead; p != NULL; p = p->next) {
 		if (p->id == id && p->key == key)
 			goto Done;
@@ -291,7 +291,7 @@ find_key(int key, void *value)
 		assert(p == NULL);
 		goto Done;
 	}
-    // 如果找不到,则新建一个key,加入keyhead列表
+    // 4. 如果找不到,则新建一个key,加入keyhead列表
 	p = (struct key *)malloc(sizeof(struct key));
 	if (p != NULL) {
 		p->id = id;

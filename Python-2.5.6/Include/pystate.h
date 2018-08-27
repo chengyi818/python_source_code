@@ -72,6 +72,7 @@ typedef struct _ts {
     PyObject *c_profileobj;
     PyObject *c_traceobj;
 
+    // 用于异常机制
     PyObject *curexc_type;
     PyObject *curexc_value;
     PyObject *curexc_traceback;

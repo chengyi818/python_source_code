@@ -144,7 +144,7 @@ PyFunction_SetClosure(PyObject *op, PyObject *closure)
 		Py_INCREF(closure);
 	}
 	else {
-		PyErr_Format(PyExc_SystemError, 
+		PyErr_Format(PyExc_SystemError,
 			     "expected tuple for closure, got '%.100s'",
 			     closure->ob_type->tp_name);
 		return -1;
@@ -346,8 +346,8 @@ The optional closure tuple supplies the bindings for free variables.");
 
 /* func_new() maintains the following invariants for closures.  The
    closure must correspond to the free variables of the code object.
-   
-   if len(code.co_freevars) == 0: 
+
+   if len(code.co_freevars) == 0:
            closure = NULL
    else:
            len(closure) == len(code.co_freevars)
@@ -415,12 +415,12 @@ func_new(PyTypeObject* type, PyObject* args, PyObject* kw)
 			}
 		}
 	}
-	
-	newfunc = (PyFunctionObject *)PyFunction_New((PyObject *)code, 
+
+	newfunc = (PyFunctionObject *)PyFunction_New((PyObject *)code,
 						     globals);
 	if (newfunc == NULL)
 		return NULL;
-	
+
 	if (name != Py_None) {
 		Py_INCREF(name);
 		Py_DECREF(newfunc->func_name);
@@ -528,6 +528,15 @@ function_call(PyObject *func, PyObject *arg, PyObject *kw)
 }
 
 /* Bind a function to an object */
+/*
+
+  obj = class()
+  obj.func()
+
+  func: 对应class.__dict__中的自定义方法
+  obj: obj
+  type: class
+ */
 static PyObject *
 func_descr_get(PyObject *func, PyObject *obj, PyObject *type)
 {
@@ -588,7 +597,7 @@ PyTypeObject PyFunction_Type = {
      class C:
          def f(cls, arg1, arg2, ...): ...
 	 f = classmethod(f)
-   
+
    It can be called either on the class (e.g. C.f()) or on an instance
    (e.g. C().f()); the instance is ignored except for its class.
    If a class method is called for a derived class, the derived class
@@ -657,7 +666,7 @@ cm_init(PyObject *self, PyObject *args, PyObject *kwds)
 		     callable->ob_type->tp_name);
 		return -1;
 	}
-	
+
 	Py_INCREF(callable);
 	cm->cm_callable = callable;
 	return 0;

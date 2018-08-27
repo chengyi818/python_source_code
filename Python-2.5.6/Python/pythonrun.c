@@ -173,33 +173,35 @@ Py_InitializeEx(int install_sigs)
 	if ((p = Py_GETENV("PYTHONOPTIMIZE")) && *p != '\0')
 		Py_OptimizeFlag = add_flag(Py_OptimizeFlag, p);
 
-    // 创建一个interp结构体,空壳
+    // 1. 创建一个interp结构体,空壳
 	interp = PyInterpreterState_New();
 	if (interp == NULL)
 		Py_FatalError("Py_Initialize: can't make first interpreter");
 
-    // 创建一个thread结构体,挂到interp下
+    // 2. 创建一个thread结构体,挂到interp下
 	tstate = PyThreadState_New(interp);
 	if (tstate == NULL)
 		Py_FatalError("Py_Initialize: can't make first thread");
-    // 设置当前线程
+    // 3. 设置当前线程为刚创建的线程
 	(void) PyThreadState_Swap(tstate);
 
+    // 4. 初始化部分内置类型
 	_Py_ReadyTypes();
 
-    // 创建了builtin objects: string类型
+    // 5. 创建了全局变量: builtin_objects, string对象实例 __builtins__
 	if (!_PyFrame_Init())
 		Py_FatalError("Py_Initialize: can't init frames");
 
-    // 初始化int类型
+    // 6. 初始化int类型
 	if (!_PyInt_Init())
 		Py_FatalError("Py_Initialize: can't init ints");
 
-    // 初始化float类型
+    // 7. 初始化float类型
 	_PyFloat_Init();
 
-    // 开始设置系统module
-	interp->modules = PyDict_New(); // 维护所有线程共享的module
+    // 8. 创建系统module字典,挂在进程描述结构体interp下
+    // Important: 维护所有线程共享的module
+	interp->modules = PyDict_New();
 	if (interp->modules == NULL)
 		Py_FatalError("Py_Initialize: can't make modules dictionary");
 	interp->modules_reloading = PyDict_New();
@@ -211,63 +213,66 @@ Py_InitializeEx(int install_sigs)
 	_PyUnicode_Init();
 #endif
 
-    // 设置__builtin__ module
-    // 并将module添加到interp->modules
+    // 9. 创建__builtin__ module并将module添加到interp->modules
+    // bimod为PyModuleObject
 	bimod = _PyBuiltin_Init();
 	if (bimod == NULL)
 		Py_FatalError("Py_Initialize: can't initialize __builtin__");
-    // 从builtin module抽取dict,赋给interp->builtins,加速查找
+    // 9.1 从builtin module抽取dict,赋给interp->builtins,加速查找
 	interp->builtins = PyModule_GetDict(bimod);
 	if (interp->builtins == NULL)
 		Py_FatalError("Py_Initialize: can't initialize builtins dict");
 	Py_INCREF(interp->builtins);
 
-    // 设置 sys module
-    // 并将module添加到interp->modules
+    // 10. 设置sys module并将module添加到interp->modules
 	sysmod = _PySys_Init();
 	if (sysmod == NULL)
 		Py_FatalError("Py_Initialize: can't initialize sys");
-    // interp->sysdict赋值
+    // 10.1 interp->sysdict赋值
 	interp->sysdict = PyModule_GetDict(sysmod);
 	if (interp->sysdict == NULL)
 		Py_FatalError("Py_Initialize: can't initialize sys dict");
 	Py_INCREF(interp->sysdict);
-    // 备份sys module
+    // 10.2 备份sys module
 	_PyImport_FixupExtension("sys", "sys");
-    // 设置搜索路径,即sys.path
+    // 10.3 设置搜索路径,即sys.path
 	PySys_SetPath(Py_GetPath());
-    // 将modules放入interp->sysdict,即sys.modules
+    // 10.4 将modules放入interp->sysdict,即sys.modules
 	PyDict_SetItemString(interp->sysdict, "modules",
 			     interp->modules);
 
-    // 初始化import环境, 构建module元信息 对应信息
+    // 11. 初始化import环境, 构建module元信息 对应信息
+    // 非重点
 	_PyImport_Init();
 
 	/* initialize builtin exceptions */
-    // 初始化内建exceptions
+    // 12. 注册内建exceptions
 	_PyExc_Init();
-    // 备份exceptions
+    // 13. 备份exceptions
 	_PyImport_FixupExtension("exceptions", "exceptions");
 
 	/* phase 2 of builtins */
-    // 备份__builtin__
+    // 14. 备份__builtin__
 	_PyImport_FixupExtension("__builtin__", "__builtin__");
 
-    // 在sys modules中添加对象,用于import机制
+    // 15. 在sys modules中添加对象,用于import机制
+    // 非重点
 	_PyImportHooks_Init();
 
 	if (install_sigs)
 		initsigs(); /* Signal handling stuff, including initintr() */
 
-    // 设置__main__ module
+    // 16. 设置__main__ module
+    // 重点
 	initmain(); /* Module __main__ */
+
     // 设置site-specific module搜索路径
 	if (!Py_NoSiteFlag)
 		initsite(); /* Module site */
 
 	/* auto-thread-state API, if available */
 #ifdef WITH_THREAD
-    // 初始化GIL锁
+    // 17. 初始化GIL相关
 	_PyGILState_Init(interp, tstate);
 #endif /* WITH_THREAD */
 
@@ -666,11 +671,11 @@ static void
 initmain(void)
 {
 	PyObject *m, *d;
-    // 创建__main__,并将之加入interp->modules
+    // 1. 创建__main__,并将之加入interp->modules
 	m = PyImport_AddModule("__main__");
 	if (m == NULL)
 		Py_FatalError("can't create __main__ module");
-    // 将sys.modules中的__builtin__加入__main__module中
+    // 2. 将sys.modules中的__builtin__加入__main__ module中
 	d = PyModule_GetDict(m);
 	if (PyDict_GetItemString(d, "__builtins__") == NULL) {
 		PyObject *bimod = PyImport_ImportModule("__builtin__");
@@ -736,20 +741,20 @@ PyRun_InteractiveLoopFlags(FILE *fp, const char *filename, PyCompilerFlags *flag
 		flags = &local_flags;
 		local_flags.cf_flags = 0;
 	}
-    // 创建交互式环境提示符">>>"
+    // 1. 创建交互式环境提示符">>>"
 	v = PySys_GetObject("ps1");
 	if (v == NULL) {
 		PySys_SetObject("ps1", v = PyString_FromString(">>> "));
 		Py_XDECREF(v);
 	}
-    // 创建交互式环境提示符"..."
+    // 2. 创建交互式环境提示符"..."
 	v = PySys_GetObject("ps2");
 	if (v == NULL) {
 		PySys_SetObject("ps2", v = PyString_FromString("... "));
 		Py_XDECREF(v);
 	}
 	for (;;) {
-        // 进入交互式环境
+        // 3. 进入交互式环境
 		ret = PyRun_InteractiveOneFlags(fp, filename, flags);
 		PRINT_TOTAL_REFS();
 		if (ret == E_EOF)
@@ -793,7 +798,7 @@ PyRun_InteractiveOneFlags(FILE *fp, const char *filename, PyCompilerFlags *flags
 		else if (PyString_Check(w))
 			ps2 = PyString_AsString(w);
 	}
-    // 编译用户在交互式环境下输入的Python语句
+    // 1. 编译用户在交互式环境下输入的Python语句,转换为AST
 	arena = PyArena_New();
 	if (arena == NULL) {
 		Py_XDECREF(v);
@@ -814,14 +819,14 @@ PyRun_InteractiveOneFlags(FILE *fp, const char *filename, PyCompilerFlags *flags
 		PyErr_Print();
 		return -1;
 	}
-    // 获取<module __main__>中维护的dict
+    // 2. 获取<module __main__>中维护的dict
 	m = PyImport_AddModule("__main__");
 	if (m == NULL) {
 		PyArena_Free(arena);
 		return -1;
 	}
 	d = PyModule_GetDict(m);
-    // 执行python语句
+    // 3. 执行python语句
 	v = run_mod(mod, filename, d, d, flags, arena);
 	PyArena_Free(arena);
 	if (v == NULL) {
@@ -885,7 +890,7 @@ PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
 	if (m == NULL)
 		return -1;
 	d = PyModule_GetDict(m);
-    // 在<module __main__>中设置__file__属性
+    // 1. 在<module __main__>中设置__file__属性
 	if (PyDict_GetItemString(d, "__file__") == NULL) {
 		PyObject *f = PyString_FromString(filename);
 		if (f == NULL)
@@ -897,7 +902,7 @@ PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
 		Py_DECREF(f);
 	}
 	ext = filename + strlen(filename) - 4;
-    // 执行pyc文件
+    // 2. 执行pyc文件
 	if (maybe_pyc_file(fp, filename, ext, closeit)) {
 		/* Try to run a pyc file. First, re-open in binary */
 		if (closeit)
@@ -911,7 +916,7 @@ PyRun_SimpleFileExFlags(FILE *fp, const char *filename, int closeit,
 			Py_OptimizeFlag = 1;
 		v = run_pyc_file(fp, filename, d, d, flags);
 	} else {
-        // 执行py文件
+        // 3. 执行py文件
 		v = PyRun_FileExFlags(fp, filename, Py_file_input, d, d,
 				      closeit, flags);
 	}
@@ -1284,6 +1289,7 @@ PyRun_FileExFlags(FILE *fp, const char *filename, int start, PyObject *globals,
 	if (arena == NULL)
 		return NULL;
 
+    // 1. 从文件解析AST
 	mod = PyParser_ASTFromFile(fp, filename, start, 0, 0,
 				   flags, NULL, arena);
 	if (closeit)
@@ -1292,6 +1298,7 @@ PyRun_FileExFlags(FILE *fp, const char *filename, int start, PyObject *globals,
 		PyArena_Free(arena);
 		return NULL;
 	}
+    // 2. 运行AST
 	ret = run_mod(mod, filename, globals, locals, flags, arena);
 	PyArena_Free(arena);
 	return ret;
@@ -1303,9 +1310,11 @@ run_mod(mod_ty mod, const char *filename, PyObject *globals, PyObject *locals,
 {
 	PyCodeObject *co;
 	PyObject *v;
+    // 1. 编译AST得到PyCodeObject
 	co = PyAST_Compile(mod, filename, flags, arena);
 	if (co == NULL)
 		return NULL;
+    // 2. 执行PyCodeObject
 	v = PyEval_EvalCode(co, globals, locals);
 	Py_DECREF(co);
 	return v;

@@ -548,24 +548,31 @@ PyObject *
 _PyImport_FixupExtension(char *name, char *filename)
 {
 	PyObject *modules, *mod, *dict, *copy;
+    // 1. 如果全局变量extensions为空, 则创建一个字典与之对应
 	if (extensions == NULL) {
 		extensions = PyDict_New();
 		if (extensions == NULL)
 			return NULL;
 	}
+    // 2. 获取interp->modules,即全局模块字典
 	modules = PyImport_GetModuleDict();
+
+    // 3. 在modules中查询name对应的module
 	mod = PyDict_GetItemString(modules, name);
 	if (mod == NULL || !PyModule_Check(mod)) {
 		PyErr_Format(PyExc_SystemError,
 		  "_PyImport_FixupExtension: module %.200s not loaded", name);
 		return NULL;
 	}
+    // 4. 抽取mod对应字典dict
 	dict = PyModule_GetDict(mod);
 	if (dict == NULL)
 		return NULL;
+    // 5. 深拷贝dict
 	copy = PyDict_Copy(dict);
 	if (copy == NULL)
 		return NULL;
+    // 6. 在extensionsn中,保存filename->copy键值对
 	PyDict_SetItemString(extensions, filename, copy);
 	Py_DECREF(copy);
 	return copy;
@@ -607,15 +614,15 @@ PyImport_AddModule(const char *name)
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m;
 
-    // 检查在interp中,是否已存在name的module
+    // 1. 检查在interp中,是否已存在name的module
 	if ((m = PyDict_GetItemString(modules, name)) != NULL &&
 	    PyModule_Check(m))
 		return m;
-    // 创建名为name的module
+    // 2. 创建名为name的module
 	m = PyModule_New(name);
 	if (m == NULL)
 		return NULL;
-    // 将moduleu加入interp->modules字典
+    // 3. 将moduleu加入interp->modules字典
 	if (PyDict_SetItemString(modules, name, m) != 0) {
 		Py_DECREF(m);
 		return NULL;

@@ -26,10 +26,10 @@ PyModule_New(const char *name)
 	m->md_dict = PyDict_New();
 	if (m->md_dict == NULL || nameobj == NULL)
 		goto fail;
-    // set __name__ in new module->dict
+    // 1. set __name__ in new module->dict
 	if (PyDict_SetItemString(m->md_dict, "__name__", nameobj) != 0)
 		goto fail;
-    // set __doc__ in new module->dict
+    // 2. set __doc__ in new module->dict
 	if (PyDict_SetItemString(m->md_dict, "__doc__", Py_None) != 0)
 		goto fail;
 	Py_DECREF(nameobj);

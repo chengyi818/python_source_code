@@ -1455,6 +1455,7 @@ PyObject_GenericSetAttr(PyObject *obj, PyObject *name, PyObject *value)
 	if (dictptr != NULL) {
 		PyObject *dict = *dictptr;
 		if (dict == NULL && value != NULL) {
+            // 4.1 若dict还未创建,则创建
 			dict = PyDict_New();
 			if (dict == NULL)
 				goto done;

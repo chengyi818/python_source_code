@@ -2293,7 +2293,7 @@ PyObject *
 _PyBuiltin_Init(void)
 {
 	PyObject *mod, *dict, *debug;
-    // 创建PyModuleObject,并填充部分属性
+    // 1. 创建PyModuleObject,并填充部分属性
 	mod = Py_InitModule4("__builtin__", builtin_methods,
 			     builtin_doc, (PyObject *)NULL,
 			     PYTHON_API_VERSION);
@@ -2318,7 +2318,7 @@ _PyBuiltin_Init(void)
 		return NULL;						\
 	ADD_TO_ALL(OBJECT)
 
-    // 设置builtin module属性
+    // 2. 设置builtin module属性
 	SETBUILTIN("None",		Py_None);
 	SETBUILTIN("Ellipsis",		Py_Ellipsis);
 	SETBUILTIN("NotImplemented",	Py_NotImplemented);

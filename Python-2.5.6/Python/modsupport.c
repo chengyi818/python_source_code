@@ -34,10 +34,10 @@ Py_InitModule4(const char *name, PyMethodDef *methods, const char *doc,
 {
 	PyObject *m, *d, *v, *n;
 	PyMethodDef *ml;
-    // 检查进程属性
+    // 1. 检查进程属性
 	if (!Py_IsInitialized())
 	    Py_FatalError("Interpreter not initialized (version mismatch?)");
-    // 检查python api版本
+    // 2. 检查python api版本
 	if (module_api_version != PYTHON_API_VERSION) {
 		char message[512];
 		PyOS_snprintf(message, sizeof(message),
@@ -63,16 +63,19 @@ Py_InitModule4(const char *name, PyMethodDef *methods, const char *doc,
 			_Py_PackageContext = NULL;
 		}
 	}
-    // 创建module
+
+    // Important
+    // 3. 创建module, m为PyModuleObject
 	if ((m = PyImport_AddModule(name)) == NULL)
 		return NULL;
-    // 设置module中的属性
+
+    // 4. 设置module中的属性
 	d = PyModule_GetDict(m);
 	if (methods != NULL) {
 		n = PyString_FromString(name);
 		if (n == NULL)
 			return NULL;
-        // 将methods中的C Function,填充到module对应的dict中
+        // 4.1 根据methods中的信息,创建PyCFunctionObject,并填充到module对应的dict中
 		for (ml = methods; ml->ml_name != NULL; ml++) {
 			if ((ml->ml_flags & METH_CLASS) ||
 			    (ml->ml_flags & METH_STATIC)) {
@@ -96,7 +99,7 @@ Py_InitModule4(const char *name, PyMethodDef *methods, const char *doc,
 		}
 		Py_DECREF(n);
 	}
-    // 设置module的doc
+    // 5. 设置module的doc
 	if (doc != NULL) {
 		v = PyString_FromString(doc);
 		if (v == NULL || PyDict_SetItemString(d, "__doc__", v) != 0) {

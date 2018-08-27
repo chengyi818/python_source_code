@@ -2697,6 +2697,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 
 	assert(tstate != NULL);
 	assert(globals != NULL);
+    // 0. 创建PyFrame_Object
 	f = PyFrame_New(tstate, co, globals, locals);
 	if (f == NULL)
 		return NULL;
