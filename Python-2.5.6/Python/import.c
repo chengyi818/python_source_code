@@ -23,6 +23,9 @@
 extern "C" {
 #endif
 
+#define __DEBUG__
+#include "cydebug.h"
+
 extern time_t PyOS_GetLastModificationTime(char *, FILE *);
 						/* In getmtime.c */
 
@@ -614,6 +617,7 @@ PyImport_AddModule(const char *name)
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m;
 
+    DEBUG("name: %s", name);
     // 1. 检查在interp中,是否已存在name的module
 	if ((m = PyDict_GetItemString(modules, name)) != NULL &&
 	    PyModule_Check(m))
@@ -660,11 +664,12 @@ PyImport_ExecCodeModule(char *name, PyObject *co)
 PyObject *
 PyImport_ExecCodeModuleEx(char *name, PyObject *co, char *pathname)
 {
-    // 获得sys.modules
+    // 1. 获得sys.modules
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m, *d, *v;
 
-    // 新建一个名为name的module
+    DEBUG("name: %s, pathname: %s", name, pathname);
+    // 2. 新建一个名为name的module
     // 如已存在,直接返回.
 	m = PyImport_AddModule(name);
 	if (m == NULL)
@@ -692,7 +697,7 @@ PyImport_ExecCodeModuleEx(char *name, PyObject *co, char *pathname)
 		PyErr_Clear(); /* Not important enough to report */
 	Py_DECREF(v);
 
-    // 执行PyCodeObject
+    // 3. 执行PyCodeObject
 	v = PyEval_EvalCode((PyCodeObject *)co, d, d);
 	if (v == NULL)
 		goto error;
@@ -808,6 +813,7 @@ load_compiled_module(char *name, char *cpathname, FILE *fp)
 	PyCodeObject *co;
 	PyObject *m;
 
+    DEBUG("name: %s, cpathname: %s", name, cpathname);
 	magic = PyMarshal_ReadLongFromFile(fp);
 	if (magic != pyc_magic) {
 		PyErr_Format(PyExc_ImportError,
@@ -815,12 +821,14 @@ load_compiled_module(char *name, char *cpathname, FILE *fp)
 		return NULL;
 	}
 	(void) PyMarshal_ReadLongFromFile(fp);
+    // 1. 获取codeObject对象
 	co = read_compiled_module(cpathname, fp);
 	if (co == NULL)
 		return NULL;
 	if (Py_VerboseFlag)
 		PySys_WriteStderr("import %s # precompiled from %s\n",
 			name, cpathname);
+    // 2. 创建module对象,并在其中执行codejobect
 	m = PyImport_ExecCodeModuleEx(name, (PyObject *)co, cpathname);
 	Py_DECREF(co);
 
@@ -936,6 +944,8 @@ load_source_module(char *name, char *pathname, FILE *fp)
 	PyCodeObject *co;
 	PyObject *m;
 
+    DEBUG("name: %s, pathname: %s", name, pathname);
+
 	mtime = PyOS_GetLastModificationTime(pathname, fp);
 	if (mtime == (time_t)(-1)) {
 		PyErr_Format(PyExc_RuntimeError,
@@ -954,7 +964,7 @@ load_source_module(char *name, char *pathname, FILE *fp)
 		return NULL;
 	}
 #endif
-    // 编译生成PyCodeObject
+    // 1. 编译生成PyCodeObject
 	cpathname = make_compiled_pathname(pathname, buf,
 					   (size_t)MAXPATHLEN + 1);
 	if (cpathname != NULL &&
@@ -978,7 +988,8 @@ load_source_module(char *name, char *pathname, FILE *fp)
 		if (cpathname)
 			write_compiled_module(co, cpathname, mtime);
 	}
-    // 执行PyCodeObject
+    // 2. 创建module对象,加入sys.modules
+    // 并在其中执行PyCodeObject
 	m = PyImport_ExecCodeModuleEx(name, (PyObject *)co, pathname);
 	Py_DECREF(co);
 
@@ -1006,7 +1017,8 @@ load_package(char *name, char *pathname)
 	FILE *fp = NULL;
 	struct filedescr *fdp;
 
-    // 构建PyModuleObject, 并加入sys.modules
+    DEBUG("name: %s, pathname: %s", name, pathname);
+    // 1. 构建PyModuleObject, 并加入sys.modules
 	m = PyImport_AddModule(name);
 	if (m == NULL)
 		return NULL;
@@ -1026,7 +1038,8 @@ load_package(char *name, char *pathname)
 	if (err != 0)
 		goto error;
 	buf[0] = '\0';
-    // 在package目录中,查找__init__.py文件
+
+    // 2. 在package目录中,查找__init__.py文件
 	fdp = find_module(name, "__init__", path, buf, sizeof(buf), &fp, NULL);
 	if (fdp == NULL) {
 		if (PyErr_ExceptionMatches(PyExc_ImportError)) {
@@ -1037,6 +1050,7 @@ load_package(char *name, char *pathname)
 			m = NULL;
 		goto cleanup;
 	}
+    // 3. 在name对应module中,执行__init__.py文件
 	m = load_module(name, fp, buf, fdp->type, NULL);
 	if (fp != NULL)
 		fclose(fp);
@@ -1171,6 +1185,7 @@ find_module(char *fullname, char *subname, PyObject *path, char *buf,
 	if (p_loader != NULL)
 		*p_loader = NULL;
 
+    DEBUG("fullname: %s, subname: %s", fullname, subname);
 	if (strlen(subname) > MAXPATHLEN) {
 		PyErr_SetString(PyExc_OverflowError,
 				"module name is too long");
@@ -1756,6 +1771,12 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 	PyObject *m;
 	int err;
 
+    // 参数说明:
+    // name: 模块全名
+    // fp: 模块文件fd
+    // buf: 模块文件绝对路径名
+
+    DEBUG("name: %s, buf: %s", name, buf);
 	/* First check that there's an open file (if we need one)  */
 	switch (type) {
 	case PY_SOURCE:
@@ -1769,27 +1790,22 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 	}
 
 	switch (type) {
-
-        // py文件
 	case PY_SOURCE:
+        // 1. load py/pyc文件
 		m = load_source_module(name, buf, fp);
 		break;
-
-        // pyc文件
 	case PY_COMPILED:
 		m = load_compiled_module(name, buf, fp);
 		break;
-
 #ifdef HAVE_DYNAMIC_LOADING
+	case C_EXTENSION:
         // Windows: pyd(dll)文件
         // Linux: so文件
-	case C_EXTENSION:
 		m = _PyImport_LoadDynamicModule(name, buf, fp);
 		break;
 #endif
-
-        // 加载package
 	case PKG_DIRECTORY:
+        // 3. 加载package
 		m = load_package(name, buf);
 		break;
 
@@ -1798,7 +1814,7 @@ load_module(char *name, FILE *fp, char *buf, int type, PyObject *loader)
 		if (buf != NULL && buf[0] != '\0')
 			name = buf;
 		if (type == C_BUILTIN)
-            // 加载未被初始记载的内建标准module, 如 math
+            // 加载未被初始记载的内建标准module, 如math
 			err = init_builtin(name);
 		else
 			err = PyImport_ImportFrozenModule(name);
@@ -2030,14 +2046,18 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
 	Py_ssize_t buflen = 0;
 	PyObject *parent, *head, *next, *tail;
 
-    // 获得import动作发生的package环境
+    // 1. 获得import动作发生的package环境
+    // parent通常为一个module
 	parent = get_parent(globals, buf, &buflen, level);
+    DEBUG("-------------------------------------------------------------------");
+    DEBUG("name: %s, buf: %s", name, buf);
+
 	if (parent == NULL)
 		return NULL;
 
-    // 解析module 路径, 依次加载
-    // name 当前尚未加载的module树状集合
-    // buf 已经加载的module树状集合
+    // 2. 解析name路径, 依次加载
+    // name: 当前尚未加载的module树状集合
+    // buf: 已经加载的module树状集合
 	head = load_next(parent, Py_None, &name, buf, &buflen);
 	if (head == NULL)
 		return NULL;
@@ -2064,27 +2084,29 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
 		return NULL;
 	}
 
-    // 开始处理 from *** import ***
-    // 错误检查
+    //////////////////////////////////////////////////////
+    // 在sys.modules中加载完成,准备返回值
+    // 3. 开始处理 from *** import ***
+    // 3.1 错误检查
 	if (fromlist != NULL) {
 		if (fromlist == Py_None || !PyObject_IsTrue(fromlist))
 			fromlist = NULL;
 	}
 
-    // 形式不是 from *** import ***,返回head
+    // 3.2 形式不是 from *** import ***,返回head
 	if (fromlist == NULL) {
 		Py_DECREF(tail);
 		return head;
 	}
 
 	Py_DECREF(head);
-    // 形式是 from *** import ***,返回tail
-    // 确保在tail中发现所有fromlist中的符号
+    // 3.3 确保在tail中发现所有fromlist中的符号
 	if (!ensure_fromlist(tail, fromlist, buf, buflen, 0)) {
 		Py_DECREF(tail);
 		return NULL;
 	}
 
+    // 3.4 形式是 from *** import ***,返回tail
 	return tail;
 }
 
@@ -2113,8 +2135,11 @@ PyImport_ImportModuleLevel(char *name, PyObject *globals, PyObject *locals,
 			 PyObject *fromlist, int level)
 {
 	PyObject *result;
+    // 1. import锁
 	lock_import();
+    // 2. import
 	result = import_module_level(name, globals, locals, fromlist, level);
+    // 3. release import lock
 	if (unlock_import() < 0) {
 		Py_XDECREF(result);
 		PyErr_SetString(PyExc_RuntimeError,
@@ -2124,10 +2149,13 @@ PyImport_ImportModuleLevel(char *name, PyObject *globals, PyObject *locals,
 	return result;
 }
 
-/* Return the package that an import is being performed in.  If globals comes
-   from the module foo.bar.bat (not itself a package), this returns the
-   sys.modules entry for foo.bar.  If globals is from a package's __init__.py,
-   the package's entry in sys.modules is returned, as a borrowed reference.
+/* Return the package that an import is being performed in.
+
+   If globals comes from the module foo.bar.bat (not itself a package),
+   this returns the sys.modules entry for foo.bar.
+
+   If globals is from a package's __init__.py, the package's entry in sys.modules
+   is returned, as a borrowed reference.
 
    The *name* of the returned package is returned in buf, with the length of
    the name in *p_buflen.
@@ -2138,11 +2166,13 @@ PyImport_ImportModuleLevel(char *name, PyObject *globals, PyObject *locals,
 static PyObject *
 get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 {
+    // 参数说明:
     // level通常为-1, 没啥作用
 	static PyObject *namestr = NULL;
 	static PyObject *pathstr = NULL;
 	PyObject *modname, *modpath, *modules, *parent;
 
+    DEBUG(" enter");
 	if (globals == NULL || !PyDict_Check(globals) || !level)
 		return Py_None;
 
@@ -2159,14 +2189,15 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 
 	*buf = '\0';
 	*p_buflen = 0;
-    // 获得当前module的名字
+    // 1. 获得当前module的名字
 	modname = PyDict_GetItem(globals, namestr);
 	if (modname == NULL || !PyString_Check(modname))
 		return Py_None;
 
+    // 2. 获得当前module __path__
 	modpath = PyDict_GetItem(globals, pathstr);
 	if (modpath != NULL) {
-        //  在package的__init__.py中进行import动作
+        // 2.1 在__init__.py中进行的import动作,即文件夹
 		Py_ssize_t len = PyString_GET_SIZE(modname);
 		if (len > MAXPATHLEN) {
 			PyErr_SetString(PyExc_ValueError,
@@ -2176,7 +2207,7 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 		strcpy(buf, PyString_AS_STRING(modname));
 	}
 	else {
-        //  在package的module中进行import动作
+        //  2.2 在module中进行import动作,即文件
 		char *start = PyString_AS_STRING(modname);
 		char *lastdot = strrchr(start, '.');
 		size_t len;
@@ -2209,7 +2240,7 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 	}
 	*p_buflen = strlen(buf);
 
-    // 在sys.modules中查找当前package名字对应的module
+    // 3. 在sys.modules中查找当前package名字对应的module
 	modules = PyImport_GetModuleDict();
 	parent = PyDict_GetItemString(modules, buf);
 	if (parent == NULL)
@@ -2227,13 +2258,18 @@ static PyObject *
 load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 	  Py_ssize_t *p_buflen)
 {
-    // p_name 当前尚未加载的module树状集合
-    // buf 已经加载的module树状集合
+    // 参数说明:
+    // mod: package环境
+    // altmod: tail
+    // p_name: 当前尚未加载的module树状集合
+    // buf: 已经加载的module树状集合
 	char *name = *p_name;
 	char *dot = strchr(name, '.');
 	size_t len;
 	char *p;
 	PyObject *result;
+
+    DEBUG("p_name: %s, buf: %s", *p_name, buf);
 
 	if (strlen(name) == 0) {
 		/* completely empty module name should only happen in
@@ -2243,7 +2279,7 @@ load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 		return mod;
 	}
 
-    // p_name保存下一个要加载的模块名
+    // 1. 计算p,即下一个要加载的模块名
 	if (dot == NULL) {
 		*p_name = NULL;
 		len = strlen(name);
@@ -2271,13 +2307,14 @@ load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 	p[len] = '\0';
 	*p_buflen = p+len-buf;
 
-    // 核心逻辑,加载模块
-    // 在主mod中加载
+    // 2. 核心逻辑,加载模块
+    // 2.1 在主mod中加载
 	result = import_submodule(mod, p, buf);
 	if (result == Py_None && altmod != mod) {
 		Py_DECREF(result);
 		/* Here, altmod must be None and mod must not be None */
-        // 在备选mod中加载,通常是默认module 搜索 path
+        // 2.2 在备选mod中加载, 很少执行到
+        DEBUG("load_next import_submodule");
 		result = import_submodule(altmod, p, p);
 		if (result != NULL && result != Py_None) {
 			if (mark_miss(buf) != 0) {
@@ -2314,14 +2351,19 @@ ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, Py_ssize_t buflen,
 		int recursive)
 {
 	int i;
+    /* 参数说明:
+       1. mod: tail module
+       2. recursive: 0
+    */
 
+    DEBUG("buf: %s", buf);
 	if (!PyObject_HasAttrString(mod, "__path__"))
 		return 1;
 
 	for (i = 0; ; i++) {
 		PyObject *item = PySequence_GetItem(fromlist, i);
 		int hasit;
-        // 如果item为NULL, 则结束ensure动作
+        // 1. 如果item为NULL,则结束
 		if (item == NULL) {
 			if (PyErr_ExceptionMatches(PyExc_IndexError)) {
 				PyErr_Clear();
@@ -2329,12 +2371,14 @@ ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, Py_ssize_t buflen,
 			}
 			return 0;
 		}
+        // 2. 参数检查,item必须为String对象
 		if (!PyString_Check(item)) {
 			PyErr_SetString(PyExc_TypeError,
 					"Item in ``from list'' not a string");
 			Py_DECREF(item);
 			return 0;
 		}
+        // 3. 如果有__all__参数,修改fromlist的值
 		if (PyString_AS_STRING(item)[0] == '*') {
 			PyObject *all;
 			Py_DECREF(item);
@@ -2352,8 +2396,11 @@ ensure_fromlist(PyObject *mod, PyObject *fromlist, char *buf, Py_ssize_t buflen,
 			}
 			continue;
 		}
+        // 4. 判断mod是否存在item
 		hasit = PyObject_HasAttr(mod, item);
-        // hasit为false,意味着出现"from A import mod2"这样的情形
+        // 4.1 hasit为false,意味着出现"from A import mod2"这样的情形
+        // 即Package A中的mod2 模块,还未被加载
+        // 单独加载mod2
 		if (!hasit) {
 			char *subname = PyString_AS_STRING(item);
 			PyObject *submod;
@@ -2417,30 +2464,31 @@ add_submodule(PyObject *mod, PyObject *submod, char *fullname, char *subname,
 static PyObject *
 import_submodule(PyObject *mod, char *subname, char *fullname)
 {
+    // 参数说明:
     // mod: import执行环境
-    // subname: 实际要加载的module
-    // fullname: module全称
+    // subname: 即将加载的module
+    // fullname: 加载完成后的module全称
 
-    // 获取sys.modules
+    // 1. 获取sys.modules
 	PyObject *modules = PyImport_GetModuleDict();
 	PyObject *m = NULL;
 
+    DEBUG("subname: %s, fullname: %s", subname, fullname);
 	/* Require:
 	   if mod == None: subname == fullname
 	   else: mod.__name__ + "." + subname == fullname
 	*/
 
-    // module pool 缓冲池
+    // 2. 判断是否已经加载,若已加载,直接返回结果
 	if ((m = PyDict_GetItemString(modules, fullname)) != NULL) {
 		Py_INCREF(m);
-	}
-	else {
-        // 真正加载
+	} else {
 		PyObject *path, *loader = NULL;
 		char buf[MAXPATHLEN+1];
 		struct filedescr *fdp;
 		FILE *fp = NULL;
 
+        // 3. 决定module搜索路径
 		if (mod == Py_None)
 			path = NULL;
 		else {
@@ -2453,10 +2501,11 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 		}
 
 		buf[0] = '\0';
-        // 查找模块 subname
+        // 4. 查找模块subname文件位置
         // fp: 被打开的module文件
-        // buf: modulea文件 绝对路径名
+        // buf: module文件 绝对路径名
         // fdp: module元信息
+        // path: 搜索范围
 		fdp = find_module(fullname, subname, path, buf, MAXPATHLEN+1,
 				  &fp, &loader);
 		Py_XDECREF(path);
@@ -2467,12 +2516,14 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 			Py_INCREF(Py_None);
 			return Py_None;
 		}
-        // 加载模块
+        // 5. 加载模块
+        // 会将fullname module,将入到sys.modules
 		m = load_module(fullname, fp, buf, fdp->type, loader);
 		Py_XDECREF(loader);
 		if (fp)
 			fclose(fp);
-        // 维护当前module module集合 fullname
+        // 6. 维护当前mod
+        // 将subname->module,放入当前mod字典
 		if (!add_submodule(mod, m, fullname, subname, modules)) {
 			Py_XDECREF(m);
 			m = NULL;

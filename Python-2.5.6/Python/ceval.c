@@ -2070,9 +2070,9 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			continue;
 
 		case IMPORT_NAME:
-            // 模块名 字符串对象
+            // 1. 模块名: 字符串对象
 			w = GETITEM(names, oparg);
-            // 内置函数 PyCFunctionObject builtin___import__
+            // 2. 内置函数: PyCFunctionObject builtin___import__
 			x = PyDict_GetItemString(f->f_builtins, "__import__");
 			if (x == NULL) {
 				PyErr_SetString(PyExc_ImportError,
@@ -2080,25 +2080,28 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 				break;
 			}
 			Py_INCREF(x);
-            // 栈上的两个参数
-			v = POP();
-			u = TOP();
-			if (PyInt_AsLong(u) != -1 || PyErr_Occurred())
+            // 3. 处理参数
+			v = POP(); // fromlist
+			u = TOP(); // -1
+			if (PyInt_AsLong(u) != -1 || PyErr_Occurred()) {
 				w = PyTuple_Pack(5,
-					    w,
-					    f->f_globals,
-					    f->f_locals == NULL ?
-						  Py_None : f->f_locals,
-					    v,
-					    u);
-			else
-                // 模块名, 当前frame->globals, 当前模块frame->locals, None
+                                 w,
+                                 f->f_globals,
+                                 f->f_locals == NULL ?
+                                 Py_None : f->f_locals,
+                                 v,
+                                 u);
+            }
+			else {
+                // 3.1 将参数打包
+                // 模块名, 当前frame->globals, 当前模块frame->locals, fromlist
 				w = PyTuple_Pack(4,
-					    w,
-					    f->f_globals,
-					    f->f_locals == NULL ?
-						  Py_None : f->f_locals,
-					    v);
+                                 w,
+                                 f->f_globals,
+                                 f->f_locals == NULL ?
+                                 Py_None : f->f_locals,
+                                 v);
+            }
 			Py_DECREF(v);
 			Py_DECREF(u);
 			if (w == NULL) {
@@ -2109,6 +2112,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			}
 			READ_TIMESTAMP(intr0);
 			v = x;
+            // 4. 即将调用 builtin___import__
 			x = PyEval_CallObject(v, w);
 			Py_DECREF(v);
 			READ_TIMESTAMP(intr1);

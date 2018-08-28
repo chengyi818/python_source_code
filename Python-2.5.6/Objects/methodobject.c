@@ -74,7 +74,7 @@ PyCFunction_Call(PyObject *func, PyObject *arg, PyObject *kw)
 		break;
 	case METH_VARARGS | METH_KEYWORDS:
 	case METH_OLDARGS | METH_KEYWORDS:
-        // 抽取func中的meth,然后调用.即调用builtin___import__
+        // 1. 抽取func中的meth,然后调用.即调用builtin___import__
 		return (*(PyCFunctionWithKeywords)meth)(self, arg, kw);
 	case METH_NOARGS:
 		if (kw == NULL || PyDict_Size(kw) == 0) {
