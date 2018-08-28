@@ -2172,7 +2172,6 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 	static PyObject *pathstr = NULL;
 	PyObject *modname, *modpath, *modules, *parent;
 
-    DEBUG(" enter");
 	if (globals == NULL || !PyDict_Check(globals) || !level)
 		return Py_None;
 
@@ -2191,8 +2190,10 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 	*p_buflen = 0;
     // 1. 获得当前module的名字
 	modname = PyDict_GetItem(globals, namestr);
-	if (modname == NULL || !PyString_Check(modname))
+	if (modname == NULL || !PyString_Check(modname)) {
+        DEBUG("return Py_None");
 		return Py_None;
+    }
 
     // 2. 获得当前module __path__
 	modpath = PyDict_GetItem(globals, pathstr);
