@@ -417,18 +417,22 @@ struct bootstate {
 static void
 t_bootstrap(void *boot_raw)
 {
+    /*
+      参数说明:
+        boot_raw: boot对象,保存了线程函数func,位置参数args,键参数keyw
+     */
 	struct bootstate *boot = (struct bootstate *) boot_raw;
 	PyThreadState *tstate;
 	PyObject *res;
 
-    // 创建PyThreadState对象,
+    // 1. 创建PyThreadState对象,
     // 将对象加入interp->tstate_head管理链表
     // 将对象加入线程对象管理全局链表keyhead
 	tstate = PyThreadState_New(boot->interp);
 
-    // 抢GIL锁
+    // 2. 抢GIL锁
 	PyEval_AcquireThread(tstate);
-    // 执行真正的线程代码
+    // 3. 执行真正的线程代码
 	res = PyEval_CallObjectWithKeywords(
 		boot->func, boot->args, boot->keyw);
 	if (res == NULL) {
@@ -449,15 +453,15 @@ t_bootstrap(void *boot_raw)
 	}
 	else
 		Py_DECREF(res);
-    // 子线程的销毁
+    // 4. 子线程的销毁,清理工作
 	Py_DECREF(boot->func);
 	Py_DECREF(boot->args);
 	Py_XDECREF(boot->keyw);
 	PyMem_DEL(boot_raw);
 
-    // 清理工作
 	PyThreadState_Clear(tstate);
 	PyThreadState_DeleteCurrent();
+    // 4.1 退出native线程
 	PyThread_exit_thread();
 }
 
@@ -468,25 +472,29 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
 	struct bootstate *boot;
 	long ident;
 
+    // 1. 从fargs中解析参数
 	if (!PyArg_UnpackTuple(fargs, "start_new_thread", 2, 3,
 		               &func, &args, &keyw))
 		return NULL;
+    // 2. 确认线程函数是可调用的
 	if (!PyCallable_Check(func)) {
 		PyErr_SetString(PyExc_TypeError,
 				"first arg must be callable");
 		return NULL;
 	}
+    // 3. 位置参数
 	if (!PyTuple_Check(args)) {
 		PyErr_SetString(PyExc_TypeError,
 				"2nd arg must be a tuple");
 		return NULL;
 	}
+    // 4. 键参数
 	if (keyw != NULL && !PyDict_Check(keyw)) {
 		PyErr_SetString(PyExc_TypeError,
 				"optional 3rd arg must be a dictionary");
 		return NULL;
 	}
-    // 创建bootstate结构
+    // 5. 创建bootstate结构,存储线程所需方法,数据
 	boot = PyMem_NEW(struct bootstate, 1);
 	if (boot == NULL)
 		return PyErr_NoMemory();
@@ -497,9 +505,10 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
 	Py_INCREF(func);
 	Py_INCREF(args);
 	Py_XINCREF(keyw);
-    // 初始化多线程环境
+    // 6. 初始化多线程环境
+    // 创建了GIL,并获得GIL
 	PyEval_InitThreads(); /* Start the interpreter's thread-awareness */
-    // 创建native线程
+    // 7. 创建native线程
 	ident = PyThread_start_new_thread(t_bootstrap, (void*) boot);
 	if (ident == -1) {
 		PyErr_SetString(ThreadError, "can't start new thread");

@@ -225,11 +225,11 @@ PyEval_InitThreads(void)
 {
 	if (interpreter_lock)
 		return;
-    // 创建GIL
+    // 1. 创建GIL
 	interpreter_lock = PyThread_allocate_lock();
-    // 尝试获取GIL
+    // 2. 尝试获取GIL
 	PyThread_acquire_lock(interpreter_lock, 1);
-    // 设置主线程
+    // 3. 全局变量main_thread, 设置主线程
 	main_thread = PyThread_get_thread_ident();
 }
 
@@ -251,11 +251,11 @@ PyEval_AcquireThread(PyThreadState *tstate)
 	if (tstate == NULL)
 		Py_FatalError("PyEval_AcquireThread: NULL new thread state");
 	/* Check someone has called PyEval_InitThreads() to create the lock */
-    // 检查GIL状态,确保GIL锁已经正确初始化
+    // 1. 检查GIL状态,确保GIL锁已经正确初始化
 	assert(interpreter_lock);
-    // 抢锁
+    // 2. 抢锁
 	PyThread_acquire_lock(interpreter_lock, 1);
-    // 将当前线程设为_PyThreadState_Current
+    // 3. 将当前线程设为_PyThreadState_Current
 	if (PyThreadState_Swap(tstate) != NULL)
 		Py_FatalError(
 			"PyEval_AcquireThread: non-NULL old thread state");
@@ -827,13 +827,13 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
         // 模拟CPU调度
 		if (--_Py_Ticker < 0) {
             // 切换线程前,重置_Py_Ticker为100.
-                        if (*next_instr == SETUP_FINALLY) {
-                                /* Make the last opcode before
-                                   a try: finally: block uninterruptable. */
-                                goto fast_next_opcode;
-                        }
-			_Py_Ticker = _Py_CheckInterval;
-			tstate->tick_counter++;
+            if (*next_instr == SETUP_FINALLY) {
+                /* Make the last opcode before
+                   a try: finally: block uninterruptable. */
+                goto fast_next_opcode;
+            }
+            _Py_Ticker = _Py_CheckInterval;
+            tstate->tick_counter++;
 #ifdef WITH_TSC
 			ticked = 1;
 #endif

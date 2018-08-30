@@ -147,6 +147,11 @@ PyThread__init_thread(void)
 long
 PyThread_start_new_thread(void (*func)(void *), void *arg)
 {
+    /*
+      参数说明:
+      1. func: t_bootstrap
+      2. arg: boot对象,保存了线程函数func,位置参数args,键参数keyw
+     */
 	pthread_t th;
 	int status;
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
@@ -157,6 +162,7 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
 #endif
 
 	dprintf(("PyThread_start_new_thread called\n"));
+    // 1. 看起来啥也没做?
 	if (!initialized)
 		PyThread_init_thread();
 
@@ -178,6 +184,9 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
         pthread_attr_setscope(&attrs, PTHREAD_SCOPE_SYSTEM);
 #endif
 
+        // 2. 创建原生线程
+        // func为即将运行的函数,而arg为参数
+        // 即t_bootstrap为在线程中运行的函数,而arg为参数
 	status = pthread_create(&th,
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
 				 &attrs,
@@ -194,7 +203,8 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
 	if (status != 0)
             return -1;
 
-        pthread_detach(th);
+    // 3. 原生线程th运行完成后,会自行退出,并释放相关资源
+    pthread_detach(th);
 
 #if SIZEOF_PTHREAD_T <= SIZEOF_LONG
 	return (long) th;
