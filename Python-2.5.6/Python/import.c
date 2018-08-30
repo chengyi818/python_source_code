@@ -2048,9 +2048,10 @@ import_module_level(char *name, PyObject *globals, PyObject *locals,
 
     // 1. 获得import动作发生的package环境
     // parent通常为一个module
-	parent = get_parent(globals, buf, &buflen, level);
     DEBUG("-------------------------------------------------------------------");
-    DEBUG("name: %s, buf: %s", name, buf);
+    DEBUG("name: %s", name);
+
+	parent = get_parent(globals, buf, &buflen, level);
 
 	if (parent == NULL)
 		return NULL;
@@ -2163,6 +2164,13 @@ PyImport_ImportModuleLevel(char *name, PyObject *globals, PyObject *locals,
    If globals doesn't come from a package or a module in a package, or a
    corresponding entry is not found in sys.modules, Py_None is returned.
 */
+/*
+  本函数主要是为了获取import指令执行时的全局字典环境,从而决定下一步即将import的模块的fullname.
+
+  1. 如果是在module foo.bar.bat中执行的import动作,那么将会返回foo.bar对应的module
+  2. 如果是在package的__init__.py中,执行的import动作,那么将会返回package对应的module
+  3. 如果不是上面两种情况,通常返回Py_None.比如在__main__ module中import,就将返回Py_None
+ */
 static PyObject *
 get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 {
@@ -2217,8 +2225,10 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 				"Attempted relative import in non-package");
 			return NULL;
 		}
-		if (lastdot == NULL)
+		if (lastdot == NULL) {
+            DEBUG("return Py_None");
 			return Py_None;
+        }
 		len = lastdot - start;
 		if (len >= MAXPATHLEN) {
 			PyErr_SetString(PyExc_ValueError,
@@ -2247,6 +2257,7 @@ get_parent(PyObject *globals, char *buf, Py_ssize_t *p_buflen, int level)
 	if (parent == NULL)
 		PyErr_Format(PyExc_SystemError,
 				"Parent module '%.200s' not loaded", buf);
+    DEBUG("return %s", buf);
 	return parent;
 	/* We expect, but can't guarantee, if parent != None, that:
 	   - parent.__name__ == buf
@@ -2271,6 +2282,8 @@ load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 	PyObject *result;
 
     DEBUG("p_name: %s, buf: %s", *p_name, buf);
+    SHOW_MOD_NAME("mod: ", mod);
+    SHOW_MOD_NAME("altmod: ", altmod);
 
 	if (strlen(name) == 0) {
 		/* completely empty module name should only happen in
@@ -2314,7 +2327,9 @@ load_next(PyObject *mod, PyObject *altmod, char **p_name, char *buf,
 	if (result == Py_None && altmod != mod) {
 		Py_DECREF(result);
 		/* Here, altmod must be None and mod must not be None */
-        // 2.2 在备选mod中加载, 很少执行到
+        // 2.2 在备选mod中加载
+        // 比如在自定义module中加载系统module,在主mod中加载可能由于buf的名称不对加载失败,
+        // 那么会按照p重新加载
         DEBUG("load_next import_submodule");
 		result = import_submodule(altmod, p, p);
 		if (result != NULL && result != Py_None) {
@@ -2475,6 +2490,7 @@ import_submodule(PyObject *mod, char *subname, char *fullname)
 	PyObject *m = NULL;
 
     DEBUG("subname: %s, fullname: %s", subname, fullname);
+    SHOW_MOD_NAME("mod:", mod);
 	/* Require:
 	   if mod == None: subname == fullname
 	   else: mod.__name__ + "." + subname == fullname
@@ -2604,6 +2620,7 @@ PyImport_ReloadModule(PyObject *m)
 			PyErr_Clear();
 	}
 	buf[0] = '\0';
+    // 1. 查找模块
 	fdp = find_module(name, subname, path, buf, MAXPATHLEN+1, &fp, &loader);
 	Py_XDECREF(path);
 
@@ -2613,6 +2630,7 @@ PyImport_ReloadModule(PyObject *m)
 		return NULL;
 	}
 
+    // 2. 重新执行module对应CodeObject
 	newm = load_module(name, fp, buf, fdp->type, loader);
 	Py_XDECREF(loader);
 

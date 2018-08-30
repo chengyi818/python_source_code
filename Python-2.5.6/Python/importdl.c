@@ -25,7 +25,7 @@ _PyImport_LoadDynamicModule(char *name, char *pathname, FILE *fp)
 	char *lastdot, *shortname, *packagecontext, *oldcontext;
 	dl_funcptr p;
 
-    // 检查module备份
+    // 1. 检查module备份
 	if ((m = _PyImport_FindExtension(name, pathname)) != NULL) {
 		Py_INCREF(m);
 		return m;
@@ -40,7 +40,7 @@ _PyImport_LoadDynamicModule(char *name, char *pathname, FILE *fp)
 		shortname = lastdot+1;
 	}
 
-    // 获取动态模块初始化函数地址
+    // 2. 获取动态模块初始化函数地址
 	p = _PyImport_GetDynLoadFunc(name, shortname, pathname, fp);
 	if (PyErr_Occurred())
 		return NULL;
@@ -52,13 +52,13 @@ _PyImport_LoadDynamicModule(char *name, char *pathname, FILE *fp)
 	}
         oldcontext = _Py_PackageContext;
 	_Py_PackageContext = packagecontext;
-    // 调用初始化函数
+    // 3. 调用初始化函数
 	(*p)();
 	_Py_PackageContext = oldcontext;
 	if (PyErr_Occurred())
 		return NULL;
 
-    // 检查module是否被加入sys.modules
+    // 4. 检查module是否被加入sys.modules
 	m = PyDict_GetItemString(PyImport_GetModuleDict(), name);
 	if (m == NULL) {
 		PyErr_SetString(PyExc_SystemError,
@@ -66,11 +66,11 @@ _PyImport_LoadDynamicModule(char *name, char *pathname, FILE *fp)
 		return NULL;
 	}
 	/* Remember the filename as the __file__ attribute */
-    // 设置module __file__属性
+    // 5. 设置module __file__属性
 	if (PyModule_AddStringConstant(m, "__file__", pathname) < 0)
 		PyErr_Clear(); /* Not important enough to report */
 
-    // 备份module
+    // 6. 备份module
 	if (_PyImport_FixupExtension(name, pathname) == NULL)
 		return NULL;
 	if (Py_VerboseFlag)
