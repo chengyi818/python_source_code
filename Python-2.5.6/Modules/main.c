@@ -539,7 +539,7 @@ Py_Main(int argc, char **argv)
 			RunStartupFile(&cf);
 		}
 		/* XXX */
-        // 4.3 文件, 通常路径?
+        // 4.3 文件, *通常路径*?
 		sts = PyRun_AnyFileExFlags(
 			fp,
 			filename == NULL ? "<stdin>" : filename,

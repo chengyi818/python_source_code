@@ -419,15 +419,15 @@ t_bootstrap(void *boot_raw)
 {
     /*
       参数说明:
-        boot_raw: boot对象,保存了线程函数func,位置参数args,键参数keyw
+      boot_raw: boot对象,保存了进程状态interp,线程函数func,位置参数args,键参数keyw
      */
 	struct bootstate *boot = (struct bootstate *) boot_raw;
 	PyThreadState *tstate;
 	PyObject *res;
 
     // 1. 创建PyThreadState对象,
-    // 将对象加入interp->tstate_head管理链表
-    // 将对象加入线程对象管理全局链表keyhead
+    // 1.1 将对象加入interp->tstate_head管理链表
+    // 1.2 将对象加入线程对象管理全局链表keyhead
 	tstate = PyThreadState_New(boot->interp);
 
     // 2. 抢GIL锁
@@ -457,11 +457,17 @@ t_bootstrap(void *boot_raw)
 	Py_DECREF(boot->func);
 	Py_DECREF(boot->args);
 	Py_XDECREF(boot->keyw);
+    // 4.1 清理打包参数所占用的内存
 	PyMem_DEL(boot_raw);
 
+    // 4.2 清理tstate锁持有的引用计数
 	PyThreadState_Clear(tstate);
+    // 4.3.1 将当前线程从interp->tstate_head中删除
+    // 4.3.2 将当前线程从keyhead中删除
+    // 4.3.3 释放当前线程tstate锁占用的内存.
+    // 4.3.4 释放GIL
 	PyThreadState_DeleteCurrent();
-    // 4.1 退出native线程
+    // 4.4 退出native线程
 	PyThread_exit_thread();
 }
 

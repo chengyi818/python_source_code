@@ -2685,8 +2685,10 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 	   PyObject **args, int argcount, PyObject **kws, int kwcount,
 	   PyObject **defs, int defcount, PyObject *closure)
 {
-    // co->co_argcount: 函数定义接受的参数数目
-    // co->co_nlocals 长度: 普通参数 + 扩展位置参数(tuple) + 扩展键参数(dict) + 局部参数
+    /* 参数说明:
+       co->co_argcount: 函数定义接受的参数数目
+       co->co_nlocals 长度: 普通参数 + 扩展位置参数(tuple) + 扩展键参数(dict) + 局部参数
+    */
 	register PyFrameObject *f;
 	register PyObject *retval = NULL;
 	register PyObject **fastlocals, **freevars;
@@ -3776,10 +3778,10 @@ fast_function(PyObject *func, PyObject ***pp_stack, int n, int na, int nk)
 
 	PCALL(PCALL_FUNCTION);
 	PCALL(PCALL_FAST_FUNCTION);
-    // 1. 函数定义: 没有默认参数
-    // 2. 函数定义需要的参数和输入的参数一致
-    // 3. 调用者: 没有输入键参数
-    // 即以类似C函数调用的方式调用Python函数
+    // 1. 即以类似C函数调用的方式调用Python函数
+    //  函数定义: 没有默认参数
+    // 且 函数定义需要的参数和输入的参数一致
+    // 且 调用者: 没有输入键参数
 	if (argdefs == NULL && co->co_argcount == n && nk==0 &&
 	    co->co_flags == (CO_OPTIMIZED | CO_NEWLOCALS | CO_NOFREE)) {
 		PyFrameObject *f;
@@ -3795,7 +3797,7 @@ fast_function(PyObject *func, PyObject ***pp_stack, int n, int na, int nk)
 		   take builtins without sanity checking them.
 		*/
 		assert(tstate != NULL);
-        // 创建frame对象
+        // 1. 创建frame对象
 		f = PyFrame_New(tstate, co, globals, NULL);
 		if (f == NULL)
 			return NULL;
@@ -3803,23 +3805,24 @@ fast_function(PyObject *func, PyObject ***pp_stack, int n, int na, int nk)
 		fastlocals = f->f_localsplus;
 		stack = (*pp_stack) - n;
 
-        // 从Python函数栈上将参数拷贝到Frame->f_localsplus
+        // 1.2 从Python函数栈上将参数拷贝到Frame->f_localsplus
 		for (i = 0; i < n; i++) {
 			Py_INCREF(*stack);
 			fastlocals[i] = *stack++;
 		}
-        // 执行frame对象
+        // 1.3 执行frame对象
 		retval = PyEval_EvalFrameEx(f,0);
 		++tstate->recursion_depth;
 		Py_DECREF(f);
 		--tstate->recursion_depth;
 		return retval;
 	}
-    // 获取默认参数数组和大小
+    // 2. 获取默认参数数组和大小
 	if (argdefs != NULL) {
 		d = &PyTuple_GET_ITEM(argdefs, 0);
 		nd = ((PyTupleObject *)argdefs)->ob_size;
 	}
+    // 3. 以比较复杂的方式调用函数
 	return PyEval_EvalCodeEx(
         co,
         globals,

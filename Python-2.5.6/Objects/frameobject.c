@@ -660,27 +660,28 @@ PyFrame_New(PyThreadState *tstate, PyCodeObject *code, PyObject *globals,
     /* Most functions have CO_NEWLOCALS and CO_OPTIMIZED set. */
     // 4.2 设置local名字空间
     if ((code->co_flags & (CO_NEWLOCALS | CO_OPTIMIZED)) ==
-		(CO_NEWLOCALS | CO_OPTIMIZED))
+        (CO_NEWLOCALS | CO_OPTIMIZED))
         // 4.2.1 CO_OPTIMIZED: 函数调用时,不需要新建local字典
         // 仅当调动locals()函数时,才会填充f_locals字典
-		; /* f_locals = NULL; will be set by PyFrame_FastToLocals() */
-	else if (code->co_flags & CO_NEWLOCALS) {
+        ; /* f_locals = NULL; will be set by PyFrame_FastToLocals() */
+    else if (code->co_flags & CO_NEWLOCALS) {
         // 4.2.2 创建class对象时,会新建new local字典
-		locals = PyDict_New();
-		if (locals == NULL) {
-			Py_DECREF(f);
-			return NULL;
-		}
+        locals = PyDict_New();
+        if (locals == NULL) {
+            Py_DECREF(f);
+            return NULL;
+        }
         f->f_locals = locals;
     }
     else {
         // 4.2.3 不需要新建local字典且locals为空时,local指向global
-		if (locals == NULL)
-			locals = globals;
+        if (locals == NULL)
+            locals = globals;
         Py_INCREF(locals);
         // 4.2.4 设置f->f_locals为locals
         f->f_locals = locals;
     }
+
     f->f_tstate = tstate;
 
 	f->f_lasti = -1;

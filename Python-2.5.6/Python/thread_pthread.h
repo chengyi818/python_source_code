@@ -150,7 +150,7 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
     /*
       参数说明:
       1. func: t_bootstrap
-      2. arg: boot对象,保存了线程函数func,位置参数args,键参数keyw
+      2. arg: boot对象,保存了进程状态interp,线程函数func,位置参数args,键参数keyw
      */
 	pthread_t th;
 	int status;
@@ -186,7 +186,7 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
 
         // 2. 创建原生线程
         // func为即将运行的函数,而arg为参数
-        // 即t_bootstrap为在线程中运行的函数,而arg为参数
+        // 即 t_bootstrap 为在线程中运行的函数,而arg为参数
 	status = pthread_create(&th,
 #if defined(THREAD_STACK_SIZE) || defined(PTHREAD_SYSTEM_SCHED_SUPPORTED)
 				 &attrs,

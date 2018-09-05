@@ -1331,15 +1331,16 @@ _PyObject_GC_Malloc(size_t basicsize)
 	PyGC_Head *g;
 	if (basicsize > PY_SSIZE_T_MAX - sizeof(PyGC_Head))
 		return PyErr_NoMemory();
-    // 为对象本身以及GC申请内存
+    // 1. 为对象本身以及GC申请内存
 	g = (PyGC_Head *)PyObject_MALLOC(
                 sizeof(PyGC_Head) + basicsize);
 	if (g == NULL)
 		return PyErr_NoMemory();
 	g->gc.gc_refs = GC_UNTRACKED; // -2
-    // 增加一代generation计数
+
+    // 2. 增加一代generation计数
 	generations[0].count++; /* number of allocated GC objects */
-    // 根据阀值,决定是否触发内存回收
+    // 3. 根据阀值,决定是否触发内存回收
  	if (generations[0].count > generations[0].threshold &&
  	    enabled &&
  	    generations[0].threshold &&

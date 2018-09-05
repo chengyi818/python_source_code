@@ -194,6 +194,7 @@ PyThreadState_New(PyInterpreterState *interp)
 		tstate->c_traceobj = NULL;
 
 #ifdef WITH_THREAD
+        // 将tstate加入keyhead
 		_PyGILState_NoteThreadState(tstate);
 #endif
 
@@ -504,6 +505,7 @@ void
 _PyGILState_Init(PyInterpreterState *i, PyThreadState *t)
 {
 	assert(i && t); /* must init with valid states */
+    // 1. 创建keymutex
 	autoTLSkey = PyThread_create_key();
 	autoInterpreterState = i;
 	assert(PyThread_get_key_value(autoTLSkey) == NULL);
@@ -642,5 +644,3 @@ PyGILState_Release(PyGILState_STATE oldstate)
 #endif
 
 #endif /* WITH_THREAD */
-
-

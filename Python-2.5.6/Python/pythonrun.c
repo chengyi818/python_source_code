@@ -273,6 +273,8 @@ Py_InitializeEx(int install_sigs)
 	/* auto-thread-state API, if available */
 #ifdef WITH_THREAD
     // 17. 初始化GIL相关
+    // 初始化keyhead及相关锁keymutex, 用于保存所有线程对象
+    // 将当前线程对象加入keyhead
 	_PyGILState_Init(interp, tstate);
 #endif /* WITH_THREAD */
 

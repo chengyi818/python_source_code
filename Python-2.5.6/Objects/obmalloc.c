@@ -132,6 +132,7 @@
  * it is recommended that SMALL_REQUEST_THRESHOLD is set to a power of 2.
  */
 #define SMALL_REQUEST_THRESHOLD	256
+// 32
 #define NB_SMALL_SIZE_CLASSES	(SMALL_REQUEST_THRESHOLD / ALIGNMENT)
 
 /*
@@ -172,6 +173,7 @@
 #define ARENA_SIZE		(256 << 10)	/* 256KB */
 
 #ifdef WITH_MEMORY_LIMITS
+// 256
 #define MAX_ARENAS		(SMALL_MEMORY_LIMIT / ARENA_SIZE)
 #endif
 
@@ -232,6 +234,8 @@
 typedef uchar block;
 
 /* Pool for small blocks. */
+// pool头部,用于管理block,联系arena.
+// pool_header占据了所管理的内存头部
 struct pool_header {
 	union { block *_padding;
 		uint count; } ref;	/* number of allocated blocks    */
@@ -248,6 +252,7 @@ typedef struct pool_header *poolp;
 
 /* Record keeping for arenas. */
 // 用于管理pool集合,最多管理64个pool
+// arena_object和它所管理的内存是分离的
 struct arena_object {
 	/* The address of the arena, as returned by malloc.  Note that 0
 	 * will never be returned by a successful malloc, and is used
@@ -747,15 +752,15 @@ PyObject_Malloc(size_t nbytes)
 	 * things without checking for overflows or negatives.
 	 * As size_t is unsigned, checking for nbytes < 0 is not required.
 	 */
-    // 限制最大申请内存的大小
+    // 1. 限制最大申请内存的大小
 	if (nbytes > PY_SSIZE_T_MAX)
 		return NULL;
 
 	/*
 	 * This implicitly redirects malloc(0).
 	 */
-    // 若申请内存大小 小于 SMALL_REQUEST_THRESHOLD,则使用小内存池功能
-    // 否则,转向malloc
+    // 2. 若申请内存大小 小于 SMALL_REQUEST_THRESHOLD(默认256字节),则使用小内存池功能
+    // 否则,转向malloc.
 	if ((nbytes - 1) < SMALL_REQUEST_THRESHOLD) {
 		LOCK();
 		/*

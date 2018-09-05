@@ -203,6 +203,7 @@ time_sleep(PyObject *self, PyObject *args)
 	double secs;
 	if (!PyArg_ParseTuple(args, "d:sleep", &secs))
 		return NULL;
+    // 真正的睡眠实现
 	if (floatsleep(secs) != 0)
 		return NULL;
 	Py_INCREF(Py_None);
@@ -499,7 +500,7 @@ time_strftime(PyObject *self, PyObject *args)
 			return 0;
 		}
 #endif
-		
+
 	}
 }
 
@@ -1010,12 +1011,13 @@ floatsleep(double secs)
 	}
 #else
 	/* XXX Can't interrupt this sleep */
+    // 1. 保存线程状态PyThreadState _saved, 并释放GIL.
 	Py_BEGIN_ALLOW_THREADS
+    // 2. 该代码在不持有GIL的情况下,执行
 	sleep((int)secs);
+    // 3. 重新获取GIL, 并设置当前线程为 _saved
 	Py_END_ALLOW_THREADS
 #endif
 
 	return 0;
 }
-
-
