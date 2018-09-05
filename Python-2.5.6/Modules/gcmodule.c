@@ -291,7 +291,9 @@ subtract_refs(PyGC_Head *containers)
 	traverseproc traverse;
 	PyGC_Head *gc = containers->gc.gc_next;
 	for (; gc != containers; gc=gc->gc.gc_next) {
+        // 1. 获取对象对应的tp_traverse方法
 		traverse = FROM_GC(gc)->ob_type->tp_traverse;
+        // 2. 调用traverse,减少container对象引用的container对象的gc_refs计数
 		(void) traverse(FROM_GC(gc),
 			       (visitproc)visit_decref,
 			       NULL);
@@ -708,6 +710,7 @@ delete_garbage(PyGC_Head *collectable, PyGC_Head *old)
 			PyList_Append(garbage, op);
 		}
 		else {
+            // 调用每个对象自己的tp_clear方法
 			if ((clear = op->ob_type->tp_clear) != NULL) {
 				Py_INCREF(op);
 				clear(op);
@@ -764,17 +767,25 @@ collect(int generation)
 	}
 
 	/* update collection and allocation counters */
+    /* 1.
+      第0代 count: 表示管理的内存对象数
+      第1代 count: 表示回收10次0代后,回收一次1代
+      第2代 count: 表示回收10次1代后,回收一次2代
+      越老越不容易被回收
+     */
 	if (generation+1 < NUM_GENERATIONS)
 		generations[generation+1].count += 1;
 	for (i = 0; i <= generation; i++)
 		generations[i].count = 0;
 
 	/* merge younger generations with one we are currently collecting */
-    // 将年轻代链入当前代
+    // 2. 将年轻代的链表, 连接到当前代之后.清空年轻代
 	for (i = 0; i < generation; i++) {
 		gc_list_merge(GEN_HEAD(i), GEN_HEAD(generation));
 	}
 
+    // 3. 生成两个链表引用young,old
+    // young是我们的目标链表
 	/* handy references */
 	young = GEN_HEAD(generation);
 	if (generation < NUM_GENERATIONS-1)
@@ -787,10 +798,9 @@ collect(int generation)
 	 * refcount greater than 0 when all the references within the
 	 * set are taken into account).
 	 */
-    // 将对象计数复制到gc.gc_ref,有效引用计数
+    // 4. 将对象计数复制到gc.gc_ref,有效引用计数
 	update_refs(young);
-    // 遍历链表,将环引用从引用中摘除
-    // 和具体的container类型相关
+    // 5. Important: 遍历链表,将环引用从引用中摘除.和具体的container类型相关
 	subtract_refs(young);
 
 	/* Leave everything reachable from outside young in young, and move
@@ -799,11 +809,13 @@ collect(int generation)
 	 * set instead.  But most things usually turn out to be reachable,
 	 * so it's more efficient to move the unreachable things.
 	 */
-    // 创建临时不可达列表
+    // 6. 创建中间不可达列表unreachable
 	gc_list_init(&unreachable);
-    // 初步生成不可达列表
+    // 7. Important: 将young中的不可达对象移入unreachable
+    // 注意: 一个container gc_refs为0,不等于需要被回收,可能其他container会引用它
 	move_unreachable(young, &unreachable);
 
+    // 8. 将young中可达对象链表移入更高generation
 	/* Move reachable objects to next generation. */
 	if (young != old)
 		gc_list_merge(young, old);
@@ -815,18 +827,21 @@ collect(int generation)
 	 * can also call arbitrary Python code but they will be dealt with by
 	 * handle_weakrefs().
  	 */
-    // 创建最终不可达链表 __del__
+    // 9. 创建最终不可达链表 finalizers
 	gc_list_init(&finalizers);
+    // 10. 将包含__del__的对象移入 finalizers
 	move_finalizers(&unreachable, &finalizers);
 	/* finalizers contains the unreachable objects with a finalizer;
 	 * unreachable objects reachable *from* those are also uncollectable,
 	 * and we move those into the finalizers list too.
 	 */
+    // 11. 将finalizers引用的对象也移入finalizers
 	move_finalizer_reachable(&finalizers);
 
 	/* Collect statistics on collectable objects found and print
 	 * debugging information.
 	 */
+    // 12. 打印 unreachable debug信息
 	for (gc = unreachable.gc.gc_next; gc != &unreachable;
 			gc = gc->gc.gc_next) {
 		m++;
@@ -847,17 +862,19 @@ collect(int generation)
 	}
 
 	/* Clear weakrefs and invoke callbacks as necessary. */
+    // 13. 处理weakrefs
 	m += handle_weakrefs(&unreachable, old);
 
 	/* Call tp_clear on objects in the unreachable set.  This will cause
 	 * the reference cycles to be broken.  It may also cause some objects
 	 * in finalizers to be freed.
 	 */
-    // 实际清理内存
+    // 14. Import: 实际清理内存
 	delete_garbage(&unreachable, old);
 
 	/* Collect statistics on uncollectable objects found and print
 	 * debugging information. */
+    // 15. 打印 finalizers debug信息
 	for (gc = finalizers.gc.gc_next;
 	     gc != &finalizers;
 	     gc = gc->gc.gc_next) {
@@ -880,6 +897,7 @@ collect(int generation)
 	 * reachable list of garbage.  The programmer has to deal with
 	 * this if they insist on creating this type of structure.
 	 */
+    // 16. 将finalizers对象移入old
 	(void)handle_finalizers(&finalizers, old);
 
 	if (PyErr_Occurred()) {
@@ -902,6 +920,9 @@ collect_generations(void)
 	 * generations younger than it will be collected. */
     // 根据三代中,每代是否超过阀值,来决定是否内存回收
     // 从最老的一代开始,清理超过阀值以及所有比它年轻的代
+    // generation 0 threshold: 700个container
+    // generation 1 threshold: 10次collect generation 0
+    // generation 2 threshold: 10次collect generation 1
 	for (i = NUM_GENERATIONS-1; i >= 0; i--) {
 		if (generations[i].count > generations[i].threshold) {
 			n = collect(i);
@@ -1350,6 +1371,7 @@ _PyObject_GC_Malloc(size_t basicsize)
 		collect_generations();
 		collecting = 0;
 	}
+    // 4. 从g对象中,获取正常的PyObject *
 	op = FROM_GC(g);
 	return op;
 }
@@ -1357,9 +1379,13 @@ _PyObject_GC_Malloc(size_t basicsize)
 PyObject *
 _PyObject_GC_New(PyTypeObject *tp)
 {
+    // 1. 分配tp对应实例对象,并加入PyGC_Head头部
 	PyObject *op = _PyObject_GC_Malloc(_PyObject_SIZE(tp));
-	if (op != NULL)
+
+    // 2. 初始化实例对象op,引用计数设为1
+	if (op != NULL) {
 		op = PyObject_INIT(op, tp);
+    }
 	return op;
 }
 

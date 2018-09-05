@@ -261,6 +261,7 @@ extern PyGC_Head *_PyGC_generation0;
 
 /* Tell the GC to track this object.  NB: While the object is tracked the
  * collector it must be safe to call the ob_traverse method. */
+// 将对象o加入genearation 0
 #define _PyObject_GC_TRACK(o) do { \
 	PyGC_Head *g = _Py_AS_GC(o); \
 	if (g->gc.gc_refs != _PyGC_REFS_UNTRACKED) \
