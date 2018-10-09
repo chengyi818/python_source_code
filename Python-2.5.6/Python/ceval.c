@@ -1729,6 +1729,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 					retval = POP();
 			}
 			else if (PyExceptionClass_Check(v) || PyString_Check(v)) {
+                // 将线程状态重新保存为异常
 				w = POP();
 				u = POP();
 				PyErr_Restore(v, w, u);
@@ -2037,6 +2038,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		case COMPARE_OP:
 			w = POP();
 			v = TOP();
+            // 比较Int对象
 			if (PyInt_CheckExact(w) && PyInt_CheckExact(v)) {
 				/* INLINE: cmp(int, int) */
 				register long a, b;
@@ -2506,7 +2508,6 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 		}
 
 		/* Double-check exception status */
-
 		if (why == WHY_EXCEPTION || why == WHY_RERAISE) {
 			if (!PyErr_Occurred()) {
 				PyErr_SetString(PyExc_SystemError,
@@ -2527,10 +2528,9 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 #endif
 
 		/* Log traceback info if this is a real exception */
-
+        // 创建TraceBack对象
 		if (why == WHY_EXCEPTION) {
 			PyTraceBack_Here(f);
-
             // 用户自定义追踪函数,通常为NULL
 			if (tstate->c_tracefunc != NULL)
 				call_exc_trace(tstate->c_tracefunc,
@@ -2543,8 +2543,8 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			why = WHY_EXCEPTION;
 
 		/* Unwind stacks if a (pseudo) exception occurred */
-
 fast_block_end:
+        // 使用当前frameobject的 TryBlock ,处理特殊情况
 		while (why != WHY_NOT && f->f_iblock > 0) {
 			PyTryBlock *b = PyFrame_BlockPop(f);
 
@@ -3132,6 +3132,7 @@ reset_exc_info(PyThreadState *tstate)
 
 /* Logic for the raise statement (too complicated for inlining).
    This *consumes* a reference count to each of its arguments. */
+// 抛出异常
 static enum why_code
 do_raise(PyObject *type, PyObject *value, PyObject *tb)
 {
@@ -4126,23 +4127,28 @@ cmp_outcome(int op, register PyObject *v, register PyObject *w)
 {
 	int res = 0;
 	switch (op) {
+        // is
 	case PyCmp_IS:
 		res = (v == w);
 		break;
+        // !=
 	case PyCmp_IS_NOT:
 		res = (v != w);
 		break;
+        // in
 	case PyCmp_IN:
 		res = PySequence_Contains(w, v);
 		if (res < 0)
 			return NULL;
 		break;
+        // not in
 	case PyCmp_NOT_IN:
 		res = PySequence_Contains(w, v);
 		if (res < 0)
 			return NULL;
 		res = !res;
 		break;
+        // exception 比较
 	case PyCmp_EXC_MATCH:
 		res = PyErr_GivenExceptionMatches(v, w);
 		break;

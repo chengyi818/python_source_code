@@ -40,7 +40,9 @@ PyErr_Restore(PyObject *type, PyObject *value, PyObject *traceback)
 	oldvalue = tstate->curexc_value;
 	oldtraceback = tstate->curexc_traceback;
 
+    // exception
 	tstate->curexc_type = type;
+    // string
 	tstate->curexc_value = value;
 	tstate->curexc_traceback = traceback;
 
@@ -819,4 +821,3 @@ PyErr_ProgramText(const char *filename, int lineno)
 #ifdef __cplusplus
 }
 #endif
-
