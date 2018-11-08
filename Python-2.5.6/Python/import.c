@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-#define __DEBUG__
+/* #define __DEBUG__ */
 #include "cydebug.h"
 
 extern time_t PyOS_GetLastModificationTime(char *, FILE *);

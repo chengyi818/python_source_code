@@ -1953,6 +1953,7 @@ PyEval_EvalFrameEx(PyFrameObject *f, int throwflag)
 			break;
 
 		case LOAD_CLOSURE:
+            /* freevars = f->f_localsplus + co->co_nlocals; */
 			x = freevars[oparg];
 			Py_INCREF(x);
 			PUSH(x);
@@ -2831,7 +2832,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
         // 1.1.6 函数调用传递参数个数 小于 函数定义的参数个数
         // 处理默认参数, 备注: 此时n == argcount
 		if (argcount < co->co_argcount) {
-            // 1.1.6.1 函数需要的参数个数 - 默认参数的数目 = 调用者至少传递的参数个数
+            // 1.1.6.1 调用者至少传递的参数个数 = 函数需要的参数个数 - 默认参数的数目
 			int m = co->co_argcount - defcount;
             // 前argcount个参数直接拷贝
             // argcount~m: 通过键参数给出
@@ -2902,7 +2903,7 @@ PyEval_EvalCodeEx(PyCodeObject *co, PyObject *globals, PyObject *locals,
 		   list so that we can march over it more efficiently?
 		*/
         // 2.1.2 依次处理cellvars
-        // 普通参数, 扩展位置参数(tuple), 扩展键参数(dict), 局部参数, *cell*, freevars, valuestack
+        // 普通参数, 扩展位置参数(tuple), 扩展键参数(dict), 局部参数, *cellvars*, freevars, valuestack
 		for (i = 0; i < PyTuple_GET_SIZE(co->co_cellvars); ++i) {
             // 2.1.2.1 获取cellname
 			cellname = PyString_AS_STRING(
@@ -3729,10 +3730,12 @@ call_function(PyObject ***pp_stack, int oparg
         // 2.2检查是否是函数对象
 		if (PyFunction_Check(func)) {
             // chengyi hack
-            /*printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);*/
-            /*printf("co_argcount: %d, co_nlocals: %d\n",*/
-                   /*((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,*/
-                   /*((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);*/
+            /* co->co_argcount: 函数定义接受的参数数目 */
+            /* co->co_nlocals 长度: 普通参数 + 扩展位置参数(tuple) + 扩展键参数(dict) + 局部参数 */
+            printf("位置参数个数 na: %d, 键参数个数 nk: %d, 参数总个数 n: %d\n", na, nk, n);
+            printf("co_argcount: %d, co_nlocals: %d\n",
+                   ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_argcount,
+                   ((PyCodeObject*)((PyFunctionObject*)func)->func_code)->co_nlocals);
             // hack over
 			x = fast_function(func, pp_stack, n, na, nk);
         }
