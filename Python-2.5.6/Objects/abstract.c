@@ -2086,6 +2086,7 @@ PyObject_CallFunctionObjArgs(PyObject *callable, ...)
 	/* count the args */
 	va_start(vargs, callable);
     // 将除callable外,所有参数打包为一个元组
+    // 在创建类的时候,callable为元类,将属性字典,基类tuple,类名打包为元组
 	args = objargs_mktuple(vargs);
 	va_end(vargs);
 	if (args == NULL)

@@ -460,7 +460,7 @@ PyObject *
 PyType_GenericAlloc(PyTypeObject *type, Py_ssize_t nitems)
 {
 	PyObject *obj;
-    // 1. 计算即将分配的大小,通常为tp_basicsize + tp_itemsize
+    // 1. 计算即将分配的大小,通常为type->tp_basicsize + type->tp_itemsize
 	const size_t size = _PyObject_VAR_SIZE(type, nitems+1);
 	/* note that we need to add one, for the sentinel */
 
@@ -1976,6 +1976,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 
 	/* Allocate the type object */
     // 6. 为新的class对象申请内存
+    // 重点
     // tp_alloc从BaseObject继承,指向PyType_GenericAlloc. nslots通常为0
     // 创建的内存大小: tp_basicsize + tp_itemsize, 即PyHeapTypeObject + PyMemberDef
 	type = (PyTypeObject *)metatype->tp_alloc(metatype, nslots);
@@ -2118,6 +2119,7 @@ type_new(PyTypeObject *metatype, PyObject *args, PyObject *kwds)
 		slotoffset += sizeof(PyObject *);
 	}
     // 15.3 设置type实例化后的大小
+    // 重点
     // 即一个PyObject头 + 两个PyObject*
 	type->tp_basicsize = slotoffset;
 	type->tp_itemsize = base->tp_itemsize; // 0
@@ -2208,7 +2210,7 @@ _PyType_Lookup(PyTypeObject *type, PyObject *name)
             // 2.2 判断base的元类是否是PyClass_Type,即base是一个经典类
 			dict = ((PyClassObject *)base)->cl_dict;
 		else {
-            // 2.3 判断base的元类是否是PyType_Type,即base是一个新式类
+            // 2.3 判断base的元类是否是 PyType_Type ,即base是一个新式类
 			assert(PyType_Check(base));
 			dict = ((PyTypeObject *)base)->tp_dict;
 		}
@@ -3414,7 +3416,7 @@ PyType_Ready(PyTypeObject *type)
 		Py_INCREF(base);
 	}
 
-        // 2.1 现在只有众基之基的PyBaseObject_Type的base为NULL
+        // 2.1 现在只有众基之基的 PyBaseObject_Type 的base为NULL
         /* Now the only way base can still be NULL is if type is
         * &PyBaseObject_Type.
         */
@@ -3492,7 +3494,7 @@ PyType_Ready(PyTypeObject *type)
 		inherit_special(type, type->tp_base);
 
 	/* Initialize tp_dict properly */
-    // 10. 按顺序从基类中继承操作
+    // 10. 按顺序从基类中继承slot
 	bases = type->tp_mro;
 	assert(bases != NULL);
 	assert(PyTuple_Check(bases));
@@ -3559,6 +3561,7 @@ PyType_Ready(PyTypeObject *type)
 			goto error;
 	}
 
+    // 15. 完成类初始化,设置标志位
 	/* All done -- set the ready flag */
 	assert(type->tp_dict != NULL);
 	type->tp_flags =
@@ -4881,7 +4884,7 @@ slot_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
   在fixup_slot_dispatchers()中update_one_slot()处理上述的两个重载函数时,
   都是将type->tp_getattro替换为slot_tp_getattr_hook().
 
-  这一点可以从slotdefs中,两个重载函数的slot定义可以看出
+  这一点可以从 slotdefs 中,两个重载函数的slot定义可以看出
 
   4. 实际替换时机
   如果仅重载了__getattribute__,那么在调用到slot_tp_getattr_hook()时,会将
@@ -5872,11 +5875,16 @@ add_operators(PyTypeObject *type)
 	for (p = slotdefs; p->name; p++) {
 		if (p->wrapper == NULL)
 			continue;
+        // 2.1 根据offset获取函数指针的地址
 		ptr = slotptr(type, p->offset);
 		if (!ptr || !*ptr)
 			continue;
+        // 2.2 dict已有同名entry
 		if (PyDict_GetItem(dict, p->name_strobj))
 			continue;
+        // type: 正在初始化的类
+        // p: slotdef
+        // *ptr: p->name对应的真正的函数指针
 		descr = PyDescr_NewWrapper(type, p, *ptr);
 		if (descr == NULL)
 			return -1;
